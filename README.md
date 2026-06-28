@@ -1,12 +1,47 @@
-- 👋 Hi, I’m @moonguybum
-- 👀 I’m interested in ...
-- 🌱 I’m currently learning ...
-- 💞️ I’m looking to collaborate on ...
-- 📫 How to reach me ...
-- 😄 Pronouns: ...
-- ⚡ Fun fact: ...
+# 안녕, 나는 @moonguybum 👋
 
-<!---
-moonguybum/moonguybum is a ✨ special ✨ repository because its `README.md` (this file) appears on your GitHub profile.
-You can click the Preview link to take a look at your changes.
---->
+> *"코드로 세상을 바꾸는 중"* ✨
+
+---
+
+### 🙋‍♂️ 나는 누구?
+
+```
+🧠 생각하고  💻 개발하고  🚀 배포한다
+```
+
+---
+
+### 🔥 요즘 꽂힌 것들
+
+- 🤖 AI / ML — 그냥 유행이 아님, 진짜 미래임
+- 🌐 풀스택 개발 — 프론트도 백도 다 내 손으로
+- 🛠 오픈소스 기여 — 받은 만큼 돌려주는 중
+
+---
+
+### 📡 현재 진행 중
+
+> 매일 새로운 거 배우는 중 🌱  
+> 지금 이 순간도 커밋 찍는 중 ⚡
+
+---
+
+### 🤝 같이 만들어요
+
+재밌는 프로젝트나 협업 제안은 언제든 환영!  
+아이디어 있으면 DM이든 이슈든 편하게 날려줘 💌
+
+---
+
+### 📬 연락처
+
+<!-- 여기에 이메일, SNS, 포트폴리오 링크 등을 추가하세요 -->
+
+---
+
+<div align="center">
+
+*방문해줘서 고마워요 — star 하나면 힘이 납니다 ⭐*
+
+</div>
