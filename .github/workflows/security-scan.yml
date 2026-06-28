@@ -1,0 +1,76 @@
+name: 🔒 보안 검사 (Security Scan)
+
+# 언제 실행되나요?
+# - main 브랜치에 push할 때
+# - Pull Request가 열릴 때
+# - 매주 월요일 오전 9시 (한국 시간 = UTC 00:00)
+on:
+  push:
+    branches: [ "main" ]
+  pull_request:
+    branches: [ "main" ]
+  schedule:
+    - cron: '0 0 * * 1'   # 매주 월요일 UTC 00:00 (KST 09:00)
+
+jobs:
+  # -------------------------------------------------------
+  # 1. 시크릿(비밀 정보) 유출 검사
+  #    API 키, 비밀번호, 토큰 등이 코드에 포함되어 있는지 검사합니다.
+  # -------------------------------------------------------
+  secret-scan:
+    name: 🔑 시크릿 유출 검사
+    runs-on: ubuntu-latest
+    steps:
+      - name: 코드 체크아웃
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0   # 전체 히스토리를 검사하기 위해 필요
+
+      - name: Gitleaks로 시크릿 스캔
+        uses: gitleaks/gitleaks-action@v2
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+  # -------------------------------------------------------
+  # 2. 코드 보안 취약점 분석 (CodeQL)
+  #    코드에서 알려진 보안 취약점 패턴을 찾아냅니다.
+  # -------------------------------------------------------
+  codeql-analysis:
+    name: 🛡️ CodeQL 보안 분석
+    runs-on: ubuntu-latest
+    permissions:
+      actions: read
+      contents: read
+      security-events: write   # 보안 이벤트 업로드 권한
+    steps:
+      - name: 코드 체크아웃
+        uses: actions/checkout@v4
+
+      - name: CodeQL 초기화
+        uses: github/codeql-action/init@v3
+        with:
+          languages: javascript   # 분석할 언어 (필요 시 추가 가능)
+
+      - name: CodeQL 자동 빌드
+        uses: github/codeql-action/autobuild@v3
+
+      - name: CodeQL 분석 실행
+        uses: github/codeql-action/analyze@v3
+
+  # -------------------------------------------------------
+  # 3. 의존성 취약점 검사
+  #    사용 중인 라이브러리에 알려진 취약점이 있는지 확인합니다.
+  # -------------------------------------------------------
+  dependency-review:
+    name: 📦 의존성 보안 검토
+    runs-on: ubuntu-latest
+    # Pull Request에서만 실행 (변경된 의존성을 비교하기 위해)
+    if: github.event_name == 'pull_request'
+    steps:
+      - name: 코드 체크아웃
+        uses: actions/checkout@v4
+
+      - name: 의존성 보안 검토
+        uses: actions/dependency-review-action@v4
+        with:
+          fail-on-severity: moderate   # 중간 이상 취약점 발견 시 실패

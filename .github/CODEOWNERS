@@ -1,0 +1,14 @@
+# CODEOWNERS - 코드 소유자 설정
+#
+# 이 파일은 저장소의 파일을 누가 관리하는지 정의합니다.
+# 지정된 소유자는 해당 파일에 대한 Pull Request가 생성될 때
+# 자동으로 리뷰어로 지정됩니다.
+#
+# 형식: <파일 패턴>  <GitHub 사용자명 또는 팀>
+
+# 모든 파일의 기본 소유자
+*                   @moonguybum
+
+# 보안 관련 파일 - 반드시 소유자 승인 필요
+SECURITY.md         @moonguybum
+.github/            @moonguybum

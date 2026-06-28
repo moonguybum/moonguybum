@@ -1,0 +1,23 @@
+# Dependabot 보안 설정
+# GitHub Actions 의존성을 자동으로 최신 버전으로 업데이트합니다.
+# 새로운 취약점이 발견된 패키지를 자동으로 감지하고 PR을 생성합니다.
+
+version: 2
+updates:
+  # GitHub Actions 워크플로우 의존성 자동 업데이트
+  - package-ecosystem: "github-actions"
+    directory: "/"
+    schedule:
+      interval: "weekly"       # 매주 월요일 검사
+      day: "monday"
+      time: "09:00"
+      timezone: "Asia/Seoul"   # 한국 시간대
+    open-pull-requests-limit: 5
+    labels:
+      - "security"
+      - "dependencies"
+    commit-message:
+      prefix: "chore(deps)"
+      include: "scope"
+    reviewers:
+      - "moonguybum"
