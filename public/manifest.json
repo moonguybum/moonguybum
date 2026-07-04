@@ -1,0 +1,20 @@
+{
+  "name": "산악 수색 구조 PWA",
+  "short_name": "SAR Map",
+  "description": "산악 수색 구조 작전을 위한 지형 보정 우선 수색구간 분석 PWA",
+  "start_url": "./",
+  "scope": "./",
+  "display": "standalone",
+  "orientation": "any",
+  "background_color": "#0f172a",
+  "theme_color": "#b91c1c",
+  "lang": "ko",
+  "icons": [
+    {
+      "src": "./icons/icon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any maskable"
+    }
+  ]
+}

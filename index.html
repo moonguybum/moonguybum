@@ -1,0 +1,20 @@
+<!DOCTYPE html>
+<html lang="ko">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="theme-color" content="#b91c1c" />
+    <meta name="description" content="산악 수색 구조용 지도 기반 PWA" />
+    <link rel="manifest" href="/manifest.json" />
+    <link rel="icon" type="image/svg+xml" href="/icons/icon.svg" />
+    <link rel="apple-touch-icon" href="/icons/icon.svg" />
+    <title>산악 수색 구조 PWA</title>
+  </head>
+  <body>
+    <div id="map"></div>
+    <div id="status" class="status" aria-live="polite">
+      지도를 클릭하여 LKP(최종목격위치)를 설정하세요.
+    </div>
+    <script type="module" src="/src/main.js"></script>
+  </body>
+</html>
