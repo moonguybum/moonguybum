@@ -51,7 +51,7 @@ export default function App() {
               name="Edit"
               component={EditCardScreen}
               options={{
-                title: '내 명함',
+                title: '명함핑 · 내 명함',
                 tabBarLabel: ({ focused }) => <TabLabel label="내 명함" focused={focused} />,
               }}
             />
@@ -59,7 +59,7 @@ export default function App() {
               name="Send"
               component={SendScreen}
               options={{
-                title: 'NFC 송신',
+                title: '명함핑 · 송신',
                 tabBarLabel: ({ focused }) => <TabLabel label="송신" focused={focused} />,
               }}
             />
@@ -67,7 +67,7 @@ export default function App() {
               name="Receive"
               component={ReceiveScreen}
               options={{
-                title: 'NFC 수신',
+                title: '명함핑 · 수신',
                 tabBarLabel: ({ focused }) => <TabLabel label="수신" focused={focused} />,
               }}
             />

@@ -1,12 +1,12 @@
 {
   "expo": {
-    "name": "NFC 전자명함",
+    "name": "명함핑",
     "slug": "nfc-business-card",
     "version": "1.0.0",
     "orientation": "portrait",
     "icon": "./assets/icon.png",
     "userInterfaceStyle": "dark",
-    "scheme": "nfc-card",
+    "scheme": "myeonghamping",
     "splash": {
       "image": "./assets/splash-icon.png",
       "resizeMode": "contain",
@@ -14,14 +14,17 @@
     },
     "ios": {
       "supportsTablet": false,
-      "bundleIdentifier": "com.moonguybum.nfcbusinesscard",
+      "bundleIdentifier": "com.moonguybum.myeonghamping",
       "infoPlist": {
+        "CFBundleDisplayName": "명함핑",
+        "CFBundleName": "명함핑",
         "NFCReaderUsageDescription": "다른 사람의 전자명함을 NFC로 읽기 위해 필요합니다.",
         "NSContactsUsageDescription": "수신한 전자명함을 연락처에 저장하기 위해 필요합니다."
       }
     },
     "android": {
-      "package": "com.moonguybum.nfcbusinesscard",
+      "package": "com.moonguybum.myeonghamping",
+      "label": "명함핑",
       "permissions": [
         "android.permission.NFC",
         "android.permission.READ_CONTACTS",

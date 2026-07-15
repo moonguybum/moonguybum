@@ -75,7 +75,7 @@ export default function EditCardScreen() {
   return (
     <ScrollView contentContainerStyle={styles.container}>
       <View style={styles.headerCard}>
-        <Text style={styles.eyebrow}>MY CARD</Text>
+        <Text style={styles.eyebrow}>명함핑</Text>
         <Text style={styles.title}>내 전자명함</Text>
         <Text style={styles.subtitle}>입력한 정보는 이 휴대폰에 저장되며 NFC 송신에 사용됩니다.</Text>
       </View>

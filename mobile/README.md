@@ -1,8 +1,38 @@
-# NFC 전자명함 (모바일 앱)
+# 명함핑 (모바일 앱)
 
-Android / iOS 휴대폰에 설치해서 사용하는 **네이티브 앱**입니다.
+**명함핑** — Android / iOS 휴대폰에 설치해서 사용하는 NFC 전자명함 앱입니다.
 
-## 기능
+- **앱 이름 (홈 화면)**: 명함핑
+- **패키지 ID**: `com.moonguybum.myeonghamping`
+
+## 아이콘·이름 변경하기
+
+### 앱 이름 변경
+
+`app.json`에서 아래 값을 수정합니다.
+
+| 항목 | 파일 위치 | 설명 |
+|------|-----------|------|
+| 홈 화면 이름 | `expo.name` | 앱스토어·홈 화면 표시명 |
+| Android 라벨 | `android.label` | Android 아이콘 아래 이름 |
+| iOS 표시명 | `ios.infoPlist.CFBundleDisplayName` | iOS 홈 화면 이름 |
+
+### 아이콘 변경
+
+1. `assets/icon-source.png` 파일을 원하는 1024×1024 이미지로 교체
+2. 아이콘 재생성:
+
+```bash
+npm run icons
+```
+
+생성되는 파일:
+- `icon.png` (1024) — iOS/Android 스토어 아이콘
+- `splash-icon.png` — 스플래시 화면
+- `android-icon-foreground.png` — Android 적응형 아이콘
+- `favicon.png` — 웹 미리보기
+
+---
 
 - 내 명함 작성 및 휴대폰에 저장
 - **NFC 송신** (Android): 상대방 휴대폰에 vCard 전달

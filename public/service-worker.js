@@ -1,4 +1,4 @@
-const CACHE_NAME = 'nfc-business-card-v1';
+const CACHE_NAME = 'myeonghamping-v1';
 const PRECACHE_URLS = [
   './',
   './index.html',

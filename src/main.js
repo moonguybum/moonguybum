@@ -28,9 +28,9 @@ const app = document.querySelector('#app');
 app.innerHTML = `
   <header class="header">
     <div>
-      <p class="eyebrow">NFC Digital Card</p>
-      <h1>전자명함</h1>
-      <p class="subtitle">NFC로 명함을 보내고, 상대방 연락처에 자동으로 저장하세요.</p>
+      <p class="eyebrow">명함핑</p>
+      <h1>NFC 전자명함</h1>
+      <p class="subtitle">휴대폰을 맞대면 명함이 전달되고, 연락처에 바로 저장됩니다.</p>
     </div>
     <div id="nfc-badge" class="badge"></div>
   </header>

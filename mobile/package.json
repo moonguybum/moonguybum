@@ -21,7 +21,11 @@
     "start": "expo start",
     "android": "expo start --android",
     "ios": "expo start --ios",
-    "web": "expo start --web"
+    "web": "expo start --web",
+    "icons": "node scripts/generate-icons.mjs assets/icon-source.png"
   },
-  "private": true
+  "private": true,
+  "devDependencies": {
+    "sharp": "^0.35.3"
+  }
 }
