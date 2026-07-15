@@ -1,134 +1,336 @@
-import maplibregl from 'maplibre-gl';
-import 'maplibre-gl/dist/maplibre-gl.css';
 import './style.css';
-import { computeSearchPolygon, DEFAULT_OPTIONS } from './search_algorithm.js';
+import {
+  EMPTY_PROFILE,
+  loadProfile,
+  saveProfile,
+  validateProfile,
+  downloadVCard,
+  shareVCard,
+} from './vcard.js';
+import { isNfcSupported, writeBusinessCard, scanBusinessCard } from './nfc.js';
 
-const VWORLD_API_KEY = 'YOUR_API_KEY';
+const fields = [
+  { id: 'fullName', label: '이름', type: 'text', required: true, placeholder: '홍길동' },
+  { id: 'company', label: '회사', type: 'text', placeholder: '주식회사 예시' },
+  { id: 'title', label: '직함', type: 'text', placeholder: '대표이사' },
+  { id: 'phone', label: '전화번호', type: 'tel', placeholder: '010-1234-5678' },
+  { id: 'email', label: '이메일', type: 'email', placeholder: 'name@example.com' },
+  { id: 'website', label: '웹사이트', type: 'url', placeholder: 'https://example.com' },
+  { id: 'address', label: '주소', type: 'text', placeholder: '서울특별시 강남구' },
+  { id: 'note', label: '메모', type: 'text', placeholder: '간단한 소개' },
+];
 
-const map = new maplibregl.Map({
-  container: 'map',
-  style: {
-    version: 8,
-    sources: {
-      vworld: {
-        type: 'raster',
-        tiles: [
-          `https://api.vworld.kr/req/wmts/1.0.0/${VWORLD_API_KEY}/Base/{z}/{y}/{x}.png`,
-        ],
-        tileSize: 256,
-        attribution: '© Vworld / 국토교통부',
-      },
-    },
-    layers: [
-      {
-        id: 'vworld-base',
-        type: 'raster',
-        source: 'vworld',
-      },
-    ],
-  },
-  center: [128.0, 36.5],
-  zoom: 10,
-  maxZoom: 19,
-});
+let activeAbort = null;
+let currentProfile = loadProfile();
 
-map.addControl(new maplibregl.NavigationControl(), 'top-right');
+const app = document.querySelector('#app');
 
-const statusEl = document.getElementById('status');
+app.innerHTML = `
+  <header class="header">
+    <div>
+      <p class="eyebrow">NFC Digital Card</p>
+      <h1>전자명함</h1>
+      <p class="subtitle">NFC로 명함을 보내고, 상대방 연락처에 자동으로 저장하세요.</p>
+    </div>
+    <div id="nfc-badge" class="badge"></div>
+  </header>
 
-function setStatus(message) {
+  <nav class="tabs" role="tablist" aria-label="전자명함 모드">
+    <button class="tab active" data-tab="edit" role="tab" aria-selected="true">내 명함</button>
+    <button class="tab" data-tab="send" role="tab" aria-selected="false">NFC 송신</button>
+    <button class="tab" data-tab="receive" role="tab" aria-selected="false">NFC 수신</button>
+  </nav>
+
+  <main>
+    <section class="panel active" data-panel="edit">
+      <form id="card-form" class="card-form"></form>
+      <div class="actions">
+        <button type="button" class="btn secondary" id="save-btn">명함 저장</button>
+        <button type="button" class="btn secondary" id="share-btn">파일 공유</button>
+      </div>
+    </section>
+
+    <section class="panel" data-panel="send">
+      <div class="info-card">
+        <h2>NFC로 명함 보내기</h2>
+        <ol>
+          <li>내 명함 정보를 먼저 저장합니다.</li>
+          <li>아래 버튼을 누른 뒤 두 휴대폰을 등을 맞대거나 가까이 대세요.</li>
+          <li>상대방 휴대폰에서 연락처 추가 화면이 자동으로 열립니다.</li>
+        </ol>
+        <p class="hint">Android Chrome + NFC 켜짐 상태에서 가장 잘 동작합니다.</p>
+      </div>
+      <div class="preview" id="send-preview"></div>
+      <button type="button" class="btn primary" id="send-btn">NFC 명함 전송 시작</button>
+      <button type="button" class="btn ghost hidden" id="cancel-send-btn">전송 취소</button>
+    </section>
+
+    <section class="panel" data-panel="receive">
+      <div class="info-card">
+        <h2>NFC로 명함 받기</h2>
+        <p>수신 대기 중 상대방 휴대폰에서 명함을 내면 아래에 표시됩니다.</p>
+      </div>
+      <div class="preview empty" id="receive-preview">아직 수신된 명함이 없습니다.</div>
+      <button type="button" class="btn primary" id="receive-btn">NFC 수신 시작</button>
+      <button type="button" class="btn ghost hidden" id="cancel-receive-btn">수신 취소</button>
+      <button type="button" class="btn secondary hidden" id="save-contact-btn">연락처에 저장</button>
+    </section>
+  </main>
+
+  <footer class="status" id="status" aria-live="polite">명함 정보를 입력하고 저장하세요.</footer>
+`;
+
+const formEl = document.querySelector('#card-form');
+const statusEl = document.querySelector('#status');
+const nfcBadgeEl = document.querySelector('#nfc-badge');
+const sendPreviewEl = document.querySelector('#send-preview');
+const receivePreviewEl = document.querySelector('#receive-preview');
+const saveContactBtn = document.querySelector('#save-contact-btn');
+
+let receivedProfile = null;
+
+function setStatus(message, type = 'info') {
   statusEl.textContent = message;
+  statusEl.dataset.type = type;
 }
 
-map.on('load', () => {
-  setStatus('지도를 클릭하여 LKP(최종목격위치)를 설정하세요.');
-});
+function renderForm() {
+  formEl.innerHTML = fields
+    .map(
+      (field) => `
+        <label class="field">
+          <span>${field.label}${field.required ? ' *' : ''}</span>
+          <input
+            id="${field.id}"
+            name="${field.id}"
+            type="${field.type}"
+            placeholder="${field.placeholder}"
+            value="${escapeHtml(currentProfile[field.id] || '')}"
+            ${field.required ? 'required' : ''}
+          />
+        </label>
+      `,
+    )
+    .join('');
+}
 
-map.on('click', (event) => {
-  const lkp = [event.lngLat.lng, event.lngLat.lat];
-  setStatus('우선 수색구간을 계산 중입니다…');
+function escapeHtml(value) {
+  return String(value)
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;');
+}
 
-  const polygon = computeSearchPolygon(lkp, {
-    maxSearchHours: DEFAULT_OPTIONS.maxSearchHours,
-    weatherFactor: DEFAULT_OPTIONS.weatherFactor,
-  });
+function readFormProfile() {
+  const profile = { ...EMPTY_PROFILE };
 
-  if (!polygon) {
-    setStatus('수색구간을 계산할 수 없습니다. 다른 위치를 클릭해 보세요.');
+  for (const field of fields) {
+    const input = formEl.elements[field.id];
+    profile[field.id] = input?.value.trim() || '';
+  }
+
+  return profile;
+}
+
+function renderPreview(profile, targetEl) {
+  const rows = [
+    ['이름', profile.fullName],
+    ['회사', profile.company],
+    ['직함', profile.title],
+    ['전화', profile.phone],
+    ['이메일', profile.email],
+    ['웹사이트', profile.website],
+    ['주소', profile.address],
+    ['메모', profile.note],
+  ].filter(([, value]) => value);
+
+  if (!rows.length) {
+    targetEl.className = 'preview empty';
+    targetEl.textContent = '표시할 명함 정보가 없습니다.';
     return;
   }
 
-  upsertLkpMarker(lkp);
-  drawSearchPolygon(polygon);
+  targetEl.className = 'preview';
+  targetEl.innerHTML = rows
+    .map(([label, value]) => `<div><strong>${label}</strong><span>${escapeHtml(value)}</span></div>`)
+    .join('');
+}
 
-  setStatus(
-    `LKP 설정 완료 (${lkp[1].toFixed(5)}°N, ${lkp[0].toFixed(5)}°E) — ` +
-      `${DEFAULT_OPTIONS.maxSearchHours}시간 우선 수색구간 표시`,
-  );
+function switchTab(tabName) {
+  document.querySelectorAll('.tab').forEach((tab) => {
+    const isActive = tab.dataset.tab === tabName;
+    tab.classList.toggle('active', isActive);
+    tab.setAttribute('aria-selected', String(isActive));
+  });
+
+  document.querySelectorAll('.panel').forEach((panel) => {
+    panel.classList.toggle('active', panel.dataset.panel === tabName);
+  });
+
+  if (tabName === 'send') {
+    renderPreview(currentProfile, sendPreviewEl);
+  }
+}
+
+function stopActiveOperation() {
+  activeAbort?.abort();
+  activeAbort = null;
+  document.querySelector('#cancel-send-btn').classList.add('hidden');
+  document.querySelector('#cancel-receive-btn').classList.add('hidden');
+}
+
+function updateNfcBadge() {
+  if (isNfcSupported()) {
+    nfcBadgeEl.textContent = 'NFC 지원';
+    nfcBadgeEl.className = 'badge ok';
+    return;
+  }
+
+  nfcBadgeEl.textContent = 'NFC 미지원';
+  nfcBadgeEl.className = 'badge warn';
+}
+
+renderForm();
+renderPreview(currentProfile, sendPreviewEl);
+updateNfcBadge();
+
+document.querySelectorAll('.tab').forEach((tab) => {
+  tab.addEventListener('click', () => {
+    stopActiveOperation();
+    switchTab(tab.dataset.tab);
+  });
 });
 
-function upsertLkpMarker(lkp) {
-  if (map.getSource('lkp-point')) {
-    map.getSource('lkp-point').setData({
-      type: 'Feature',
-      geometry: { type: 'Point', coordinates: lkp },
-      properties: { label: 'LKP' },
+document.querySelector('#save-btn').addEventListener('click', () => {
+  const profile = readFormProfile();
+  const error = validateProfile(profile);
+
+  if (error) {
+    setStatus(error, 'error');
+    return;
+  }
+
+  currentProfile = profile;
+  saveProfile(profile);
+  renderPreview(currentProfile, sendPreviewEl);
+  setStatus('명함이 이 기기에 저장되었습니다.', 'success');
+});
+
+document.querySelector('#share-btn').addEventListener('click', async () => {
+  const profile = readFormProfile();
+  const error = validateProfile(profile);
+
+  if (error) {
+    setStatus(error, 'error');
+    return;
+  }
+
+  try {
+    const shared = await shareVCard(profile);
+    setStatus(
+      shared ? '명함 파일을 공유했습니다.' : '명함 .vcf 파일을 다운로드했습니다.',
+      'success',
+    );
+  } catch (err) {
+    if (err.name !== 'AbortError') {
+      setStatus(err.message || '공유에 실패했습니다.', 'error');
+    }
+  }
+});
+
+document.querySelector('#send-btn').addEventListener('click', async () => {
+  const profile = readFormProfile();
+  const error = validateProfile(profile);
+
+  if (error) {
+    setStatus(error, 'error');
+    switchTab('edit');
+    return;
+  }
+
+  currentProfile = profile;
+  saveProfile(profile);
+  renderPreview(currentProfile, sendPreviewEl);
+
+  stopActiveOperation();
+  activeAbort = new AbortController();
+
+  document.querySelector('#cancel-send-btn').classList.remove('hidden');
+
+  try {
+    await writeBusinessCard(profile, {
+      signal: activeAbort.signal,
+      onStatus: setStatus,
     });
-    return;
+    setStatus('명함 전송이 완료되었습니다. 상대방 화면을 확인하세요.', 'success');
+  } catch (err) {
+    if (err.name === 'AbortError') {
+      setStatus('NFC 전송을 취소했습니다.');
+      return;
+    }
+    setStatus(err.message || 'NFC 전송에 실패했습니다.', 'error');
+  } finally {
+    document.querySelector('#cancel-send-btn').classList.add('hidden');
+    activeAbort = null;
   }
+});
 
-  map.addSource('lkp-point', {
-    type: 'geojson',
-    data: {
-      type: 'Feature',
-      geometry: { type: 'Point', coordinates: lkp },
-      properties: { label: 'LKP' },
-    },
-  });
+document.querySelector('#cancel-send-btn').addEventListener('click', () => {
+  stopActiveOperation();
+  setStatus('NFC 전송을 취소했습니다.');
+});
 
-  map.addLayer({
-    id: 'lkp-point-layer',
-    type: 'circle',
-    source: 'lkp-point',
-    paint: {
-      'circle-radius': 8,
-      'circle-color': '#facc15',
-      'circle-stroke-width': 2,
-      'circle-stroke-color': '#713f12',
-    },
-  });
-}
+document.querySelector('#receive-btn').addEventListener('click', async () => {
+  stopActiveOperation();
+  activeAbort = new AbortController();
+  receivedProfile = null;
+  saveContactBtn.classList.add('hidden');
 
-function drawSearchPolygon(feature) {
-  const data = { type: 'FeatureCollection', features: [feature] };
+  document.querySelector('#cancel-receive-btn').classList.remove('hidden');
 
-  if (map.getSource('search-polygon')) {
-    map.getSource('search-polygon').setData(data);
-    return;
+  try {
+    await scanBusinessCard({
+      signal: activeAbort.signal,
+      onStatus: setStatus,
+      onCard: (profile) => {
+        receivedProfile = profile;
+        renderPreview(profile, receivePreviewEl);
+        saveContactBtn.classList.remove('hidden');
+      },
+    });
+  } catch (err) {
+    if (err.name === 'AbortError') {
+      setStatus('NFC 수신을 취소했습니다.');
+      return;
+    }
+    setStatus(err.message || 'NFC 수신에 실패했습니다.', 'error');
+  } finally {
+    document.querySelector('#cancel-receive-btn').classList.add('hidden');
+    activeAbort = null;
   }
+});
 
-  map.addSource('search-polygon', { type: 'geojson', data });
+document.querySelector('#cancel-receive-btn').addEventListener('click', () => {
+  stopActiveOperation();
+  setStatus('NFC 수신을 취소했습니다.');
+});
 
-  map.addLayer({
-    id: 'search-polygon-fill',
-    type: 'fill',
-    source: 'search-polygon',
-    paint: {
-      'fill-color': '#dc2626',
-      'fill-opacity': 0.35,
-    },
-  });
+document.querySelector('#save-contact-btn').addEventListener('click', async () => {
+  if (!receivedProfile) return;
 
-  map.addLayer({
-    id: 'search-polygon-outline',
-    type: 'line',
-    source: 'search-polygon',
-    paint: {
-      'line-color': '#b91c1c',
-      'line-width': 2,
-    },
-  });
-}
+  try {
+    const shared = await shareVCard(receivedProfile);
+    if (!shared) {
+      downloadVCard(receivedProfile);
+    }
+    setStatus('연락처 앱에서 명함을 저장하세요. (자동 저장 화면이 열립니다)', 'success');
+  } catch (err) {
+    if (err.name !== 'AbortError') {
+      setStatus(err.message || '연락처 저장에 실패했습니다.', 'error');
+    }
+  }
+});
 
 if ('serviceWorker' in navigator) {
   window.addEventListener('load', () => {

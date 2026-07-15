@@ -1,13 +1,13 @@
 {
-  "name": "산악 수색 구조 PWA",
-  "short_name": "SAR Map",
-  "description": "산악 수색 구조 작전을 위한 지형 보정 우선 수색구간 분석 PWA",
+  "name": "NFC 전자명함",
+  "short_name": "전자명함",
+  "description": "NFC로 전자명함을 주고받고 연락처에 자동 저장하는 PWA",
   "start_url": "./",
   "scope": "./",
   "display": "standalone",
-  "orientation": "any",
-  "background_color": "#0f172a",
-  "theme_color": "#b91c1c",
+  "orientation": "portrait",
+  "background_color": "#0b1220",
+  "theme_color": "#0ea5e9",
   "lang": "ko",
   "icons": [
     {
