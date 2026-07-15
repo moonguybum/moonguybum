@@ -1,77 +1,53 @@
-# NFC 전자명함 PWA
+# NFC 전자명함
 
-휴대폰 NFC로 전자명함(vCard)을 주고받고, 상대방 연락처에 자동으로 저장할 수 있는 웹 앱입니다.
+휴대폰 NFC로 전자명함(vCard)을 주고받고, 연락처에 저장하는 프로젝트입니다.
 
-## 주요 기능
+## 모바일 앱 (권장)
 
-- **내 명함 작성**: 이름, 회사, 직함, 전화, 이메일, 웹사이트, 주소, 메모
-- **NFC 송신**: Web NFC로 `text/vcard` 형식의 명함을 상대방 휴대폰에 전송
-- **NFC 수신**: 상대방 명함을 읽어 앱에 표시 후 연락처 저장
-- **파일 공유/다운로드**: NFC 미지원 환경에서는 `.vcf` 파일로 공유
+**`mobile/`** 폴더에 Android/iOS 네이티브 앱이 있습니다.
 
-## 사용 방법
+```bash
+cd mobile
+npm install
+eas build -p android --profile preview   # APK 설치 파일 생성
+```
 
-### 1. 내 명함 등록
+자세한 설치 방법: [mobile/README.md](./mobile/README.md)
 
-1. `내 명함` 탭에서 정보 입력
-2. **명함 저장** 클릭
+### 모바일 앱 기능
 
-### 2. NFC로 명함 보내기 (송신)
+- 내 명함 작성 및 휴대폰 저장
+- NFC 송신 (Android)
+- NFC 수신 + **연락처에 직접 저장**
+- vCard 파일 공유 (iPhone 대안)
 
-1. `NFC 송신` 탭 이동
-2. **NFC 명함 전송 시작** 클릭
-3. 상대방 휴대폰과 **등을 맞대거나 가까이** 대기
-4. 상대방 기기에서 **연락처 추가 화면**이 열리면 저장
+> Expo Go가 아닌 **APK/AAB 빌드**가 필요합니다 (NFC 네이티브 모듈 사용).
 
-### 3. NFC로 명함 받기 (수신)
+---
 
-1. `NFC 수신` 탭 이동
-2. **NFC 수신 시작** 클릭
-3. 상대방이 명함을 전송하면 앱에 표시
-4. **연락처에 저장**으로 `.vcf` 파일 열기 → 연락처 앱에서 저장
+## 웹 PWA (보조)
 
-## 지원 환경
-
-| 환경 | NFC 송신 | NFC 수신 | 자동 연락처 저장 |
-|------|----------|----------|------------------|
-| Android Chrome | ✅ | ✅ | ✅ (OS가 vCard 처리) |
-| iOS Safari | ❌ | 제한적 | `.vcf` 공유로 대체 |
-| PC 브라우저 | ❌ | ❌ | `.vcf` 다운로드 |
-
-> **참고**: 보안상 연락처는 OS가 사용자 확인 후 저장합니다. 앱이 연락처를 무단으로 저장할 수는 없습니다.
-
-## 로컬 실행
+브라우저에서 사용하는 웹 버전입니다.
 
 ```bash
 npm install
 npm run dev
 ```
 
-Android 휴대폰에서 테스트하려면 HTTPS가 필요합니다.
+### 웹 기능
 
-```bash
-npm run build
-npm run preview -- --host
-```
+- 명함 정보 입력/로컬 저장
+- Web NFC 송신/수신 (Android Chrome)
+- vCard 파일 공유/다운로드
 
-같은 Wi-Fi의 휴대폰 브라우저에서 `https://<PC-IP>:4173` 접속 후 사용하세요.
+## 지원 환경
 
-## 기술 스택
-
-- Vite + Vanilla JavaScript
-- Web NFC API (`NDEFReader`)
-- vCard 3.0 (`text/vcard`)
-- PWA (Service Worker + manifest)
-
-## 프로젝트 구조
-
-```
-src/
-  main.js      # UI 및 앱 흐름
-  nfc.js       # Web NFC 송신/수신
-  vcard.js     # vCard 생성/파싱/저장
-  style.css    # 스타일
-```
+| 기능 | 모바일 앱 (Android) | 모바일 앱 (iOS) | 웹 PWA |
+|------|---------------------|-----------------|--------|
+| NFC 송신 | ✅ | ❌ | Android Chrome |
+| NFC 수신 | ✅ | 제한적 | Android Chrome |
+| 연락처 직접 저장 | ✅ | ✅ | ❌ |
+| 파일 공유 | ✅ | ✅ | ✅ |
 
 ## 라이선스
 

@@ -1,0 +1,62 @@
+{
+  "expo": {
+    "name": "NFC 전자명함",
+    "slug": "nfc-business-card",
+    "version": "1.0.0",
+    "orientation": "portrait",
+    "icon": "./assets/icon.png",
+    "userInterfaceStyle": "dark",
+    "scheme": "nfc-card",
+    "splash": {
+      "image": "./assets/splash-icon.png",
+      "resizeMode": "contain",
+      "backgroundColor": "#0b1220"
+    },
+    "ios": {
+      "supportsTablet": false,
+      "bundleIdentifier": "com.moonguybum.nfcbusinesscard",
+      "infoPlist": {
+        "NFCReaderUsageDescription": "다른 사람의 전자명함을 NFC로 읽기 위해 필요합니다.",
+        "NSContactsUsageDescription": "수신한 전자명함을 연락처에 저장하기 위해 필요합니다."
+      }
+    },
+    "android": {
+      "package": "com.moonguybum.nfcbusinesscard",
+      "permissions": [
+        "android.permission.NFC",
+        "android.permission.READ_CONTACTS",
+        "android.permission.WRITE_CONTACTS"
+      ],
+      "adaptiveIcon": {
+        "backgroundColor": "#0b1220",
+        "foregroundImage": "./assets/android-icon-foreground.png",
+        "backgroundImage": "./assets/android-icon-background.png",
+        "monochromeImage": "./assets/android-icon-monochrome.png"
+      }
+    },
+    "web": {
+      "favicon": "./assets/favicon.png"
+    },
+    "plugins": [
+      "expo-sharing",
+      [
+        "react-native-nfc-manager",
+        {
+          "nfcPermission": "전자명함을 NFC로 주고받기 위해 NFC 권한이 필요합니다.",
+          "includeNdefEntitlement": true
+        }
+      ],
+      [
+        "expo-contacts",
+        {
+          "contactsPermission": "수신한 전자명함을 연락처에 저장하기 위해 연락처 권한이 필요합니다."
+        }
+      ]
+    ],
+    "extra": {
+      "eas": {
+        "projectId": "nfc-business-card-local"
+      }
+    }
+  }
+}
