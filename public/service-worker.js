@@ -1,4 +1,4 @@
-const CACHE_NAME = 'mountain-sar-pwa-v1';
+const CACHE_NAME = 'nfc-business-card-v1';
 const PRECACHE_URLS = [
   './',
   './index.html',
