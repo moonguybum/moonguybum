@@ -1,77 +1,87 @@
-# NFC 전자명함 PWA
+# 수정회 테니스 월례회 매니저
 
-휴대폰 NFC로 전자명함(vCard)을 주고받고, 상대방 연락처에 자동으로 저장할 수 있는 웹 앱입니다.
+테니스 월례회 대진·순위를 관리하는 모바일 웹앱입니다. 4가지 경기 방식을 지원하며 SQLite로 데이터를 영구 저장합니다.
 
 ## 주요 기능
 
-- **내 명함 작성**: 이름, 회사, 직함, 전화, 이메일, 웹사이트, 주소, 메모
-- **NFC 송신**: Web NFC로 `text/vcard` 형식의 명함을 상대방 휴대폰에 전송
-- **NFC 수신**: 상대방 명함을 읽어 앱에 표시 후 연락처 저장
-- **파일 공유/다운로드**: NFC 미지원 환경에서는 `.vcf` 파일로 공유
+| 모드 | 설명 |
+|------|------|
+| **INDIVIDUAL** | 개인 교대 순환전 — 6명 5라운드 로테이션, 5경기+ 시 상위 4경기 득실 |
+| **THREE_KINGDOMS** | 삼국지 3팀 단체전 — A/B/C 팀 스네이크 드래프트 |
+| **UP_DOWN** | 승급/강등전 — 코트별 승급·강등 (코트당 최대 4명) |
+| **FIXED_TEAM** | 고정 파트너 리그전 — 상위+하위 페어링 |
 
-## 사용 방법
+## 연말 시상 (월례회 성적 누적)
 
-### 1. 내 명함 등록
-
-1. `내 명함` 탭에서 정보 입력
-2. **명함 저장** 클릭
-
-### 2. NFC로 명함 보내기 (송신)
-
-1. `NFC 송신` 탭 이동
-2. **NFC 명함 전송 시작** 클릭
-3. 상대방 휴대폰과 **등을 맞대거나 가까이** 대기
-4. 상대방 기기에서 **연락처 추가 화면**이 열리면 저장
-
-### 3. NFC로 명함 받기 (수신)
-
-1. `NFC 수신` 탭 이동
-2. **NFC 수신 시작** 클릭
-3. 상대방이 명함을 전송하면 앱에 표시
-4. **연락처에 저장**으로 `.vcf` 파일 열기 → 연락처 앱에서 저장
-
-## 지원 환경
-
-| 환경 | NFC 송신 | NFC 수신 | 자동 연락처 저장 |
-|------|----------|----------|------------------|
-| Android Chrome | ✅ | ✅ | ✅ (OS가 vCard 처리) |
-| iOS Safari | ❌ | 제한적 | `.vcf` 공유로 대체 |
-| PC 브라우저 | ❌ | ❌ | `.vcf` 다운로드 |
-
-> **참고**: 보안상 연락처는 OS가 사용자 확인 후 저장합니다. 앱이 연락처를 무단으로 저장할 수는 없습니다.
-
-## 로컬 실행
+1. 월례회 경기 종료 후 **시상** 탭 → **월례회 성적 확정**
+2. 매월 순위별 포인트가 자동 누적 (기본: 1위 10점 · 2위 7점 · 3위 5점 · 4~6위 3·2·1점)
+3. **연말총회 시상** 탭에서 해당 연도 **1·2·3위** 자동 선별
 
 ```bash
+# API 예시
+POST /api/monthly-records          # 이번 달 성적 확정
+GET  /api/year-awards/2026         # 2026년 연말 시상 1·2·3위
+GET  /api/monthly-records?year=2026
+```
+
+### 백엔드 (FastAPI)
+
+```bash
+cd backend
+pip install -r requirements.txt
+python3 -m uvicorn main:app --host 0.0.0.0 --port 8000
+```
+
+### 프론트엔드 (React + Vite)
+
+```bash
+cd frontend
 npm install
 npm run dev
 ```
 
-Android 휴대폰에서 테스트하려면 HTTPS가 필요합니다.
+브라우저: http://localhost:5173
+
+## Docker 배포
 
 ```bash
-npm run build
-npm run preview -- --host
+docker compose up --build
 ```
 
-같은 Wi-Fi의 휴대폰 브라우저에서 `https://<PC-IP>:4173` 접속 후 사용하세요.
+브라우저: http://localhost:8000 (API + 빌드된 프론트엔드 통합 서빙)
 
-## 기술 스택
+데이터는 Docker volume `tennis-data`에 SQLite 파일로 저장됩니다.
 
-- Vite + Vanilla JavaScript
-- Web NFC API (`NDEFReader`)
-- vCard 3.0 (`text/vcard`)
-- PWA (Service Worker + manifest)
+## 테스트
+
+```bash
+cd backend
+pip install -r requirements.txt
+pytest test_main.py -v
+```
 
 ## 프로젝트 구조
 
 ```
-src/
-  main.js      # UI 및 앱 흐름
-  nfc.js       # Web NFC 송신/수신
-  vcard.js     # vCard 생성/파싱/저장
-  style.css    # 스타일
+backend/
+  main.py            # FastAPI + MatchEngine
+  database.py        # SQLite 영구 저장
+  schema_sqlite.sql
+  test_main.py
+
+frontend/
+  src/App.jsx        # 설정 / 대진표 / 순위 UI
+
+Dockerfile
+docker-compose.yml
 ```
+
+## 환경 변수
+
+| 변수 | 기본값 | 설명 |
+|------|--------|------|
+| `TENNIS_DB_PATH` | `backend/data/tennis.db` | SQLite DB 경로 |
+| `CORS_ORIGINS` | localhost 개발 URL | CORS 허용 origin (쉼표 구분) |
 
 ## 라이선스
 

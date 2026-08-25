@@ -1,0 +1,13 @@
+services:
+  tennis-manager:
+    build: .
+    ports:
+      - "8000:8000"
+    environment:
+      - TENNIS_DB_PATH=/data/tennis.db
+    volumes:
+      - tennis-data:/data
+    restart: unless-stopped
+
+volumes:
+  tennis-data:
