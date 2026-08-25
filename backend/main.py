@@ -1,21 +1,26 @@
 """
 수정회 테니스 월례회 매니저 - FastAPI 백엔드
-In-memory 저장소 + MatchEngine 4모드 지원
+SQLite 영구 저장 + MatchEngine 4모드 지원
 """
 
 from __future__ import annotations
 
-import itertools
+import os
+from contextlib import asynccontextmanager
 from copy import deepcopy
-from datetime import datetime
+from datetime import datetime, timezone
+from pathlib import Path
 from typing import Any, Dict, List, Optional
 
 from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel, Field
 
+from database import load_state, save_state
+
 # ---------------------------------------------------------------------------
-# In-memory DB
+# Runtime state (SQLite와 동기화)
 # ---------------------------------------------------------------------------
 
 players_db: List[Dict[str, Any]] = []
@@ -24,12 +29,44 @@ settings_db: Dict[str, Any] = {
     "mode": "INDIVIDUAL",
     "courts": 2,
 }
-court_states_db: List[Dict[str, Any]] = []  # UP_DOWN 모드용
-team_assignments_db: Dict[str, List[int]] = {}  # THREE_KINGDOMS
-fixed_teams_db: List[Dict[str, Any]] = []  # FIXED_TEAM
+court_states_db: List[Dict[str, Any]] = []
+team_assignments_db: Dict[str, List[int]] = {}
+fixed_teams_db: List[Dict[str, Any]] = []
 
 _next_player_id = 1
 _next_match_id = 1
+
+MAX_COURT_PLAYERS = 4
+
+FRONTEND_DIST = Path(__file__).resolve().parent.parent / "frontend" / "dist"
+
+
+def bootstrap_state() -> None:
+    global players_db, matches_db, settings_db, court_states_db
+    global team_assignments_db, fixed_teams_db, _next_player_id, _next_match_id
+    (
+        players_db,
+        matches_db,
+        settings_db,
+        court_states_db,
+        team_assignments_db,
+        fixed_teams_db,
+        _next_player_id,
+        _next_match_id,
+    ) = load_state()
+
+
+def persist() -> None:
+    save_state(
+        players_db,
+        matches_db,
+        settings_db,
+        court_states_db,
+        team_assignments_db,
+        fixed_teams_db,
+        _next_player_id,
+        _next_match_id,
+    )
 
 
 def _pid() -> int:
@@ -108,6 +145,20 @@ class MatchEngine:
         return sorted(players, key=lambda p: (p.get("skill_rank") or 999, p["id"]))
 
     @staticmethod
+    def _six_player_schedule(ids: List[int]) -> List[tuple]:
+        """6명 고정 로테이션: 파트너 교대 + 실력 밸런스."""
+        if len(ids) < 6:
+            return []
+        a, b, c, d, e, f = ids[:6]
+        return [
+            ([a, f], [b, e]),
+            ([c, d], [a, b]),
+            ([a, e], [c, f]),
+            ([b, d], [e, f]),
+            ([b, c], [d, f]),
+        ]
+
+    @staticmethod
     def _generate_individual(
         players: List[Dict[str, Any]], courts: int
     ) -> List[Dict[str, Any]]:
@@ -115,22 +166,40 @@ class MatchEngine:
         sorted_p = MatchEngine._sorted_by_skill(players)
         n = len(sorted_p)
         matches: List[Dict[str, Any]] = []
+        rotation_idx = 0
         round_num = 1
 
-        # 4명씩 그룹으로 나누어 밸런스 매치 생성, 나머지는 순환
+        if n == 6:
+            ids = [p["id"] for p in sorted_p[:6]]
+            for ta, tb in MatchEngine._six_player_schedule(ids):
+                court = ((rotation_idx % courts) + 1) if courts > 0 else 1
+                matches.append(
+                    {
+                        "mode": "INDIVIDUAL",
+                        "round_num": round_num,
+                        "court": court,
+                        "team_a_ids": ta,
+                        "team_b_ids": tb,
+                        "score_a": None,
+                        "score_b": None,
+                        "status": "pending",
+                    }
+                )
+                rotation_idx += 1
+                round_num += 1
+            return matches
+
         groups = []
         for i in range(0, n, 4):
-            chunk = sorted_p[i:i + 4]
+            chunk = sorted_p[i : i + 4]
             if len(chunk) >= 4:
                 groups.append(chunk)
 
         if not groups:
             groups = [sorted_p[:4]]
 
-        rotation_idx = 0
         for g in groups:
             ids = [p["id"] for p in g]
-            # 1+4 vs 2+3
             team_a = [ids[0], ids[3]]
             team_b = [ids[1], ids[2]]
             court = ((rotation_idx % courts) + 1) if courts > 0 else 1
@@ -149,7 +218,6 @@ class MatchEngine:
             rotation_idx += 1
             round_num += 1
 
-        # 추가 로테이션 라운드 (파트너 교체: 1+2 vs 3+4, 1+3 vs 2+4)
         if len(sorted_p) >= 4:
             base = sorted_p[:4]
             ids = [p["id"] for p in base]
@@ -158,7 +226,7 @@ class MatchEngine:
                 ([ids[0], ids[2]], [ids[1], ids[3]]),
                 ([ids[0], ids[3]], [ids[1], ids[2]]),
             ]
-            for ta, tb in extra_pairs:
+            for ta, tb in extra_pairs[1:]:
                 court = ((rotation_idx % courts) + 1) if courts > 0 else 1
                 matches.append(
                     {
@@ -347,6 +415,11 @@ class MatchEngine:
         return matches
 
     @staticmethod
+    def _trim_courts() -> None:
+        for cs in court_states_db:
+            cs["player_ids"] = cs["player_ids"][:MAX_COURT_PLAYERS]
+
+    @staticmethod
     def apply_up_down_result(match: Dict[str, Any]) -> None:
         """UP_DOWN 경기 결과 후 승급/강등 처리."""
         global court_states_db
@@ -367,20 +440,17 @@ class MatchEngine:
             return
 
         if court == 1:
-            # 1코트 패자 → 2코트, 2코트 승자 → 1코트
             for lid in losers:
                 if lid in c1["player_ids"]:
                     c1["player_ids"].remove(lid)
                     if lid not in c2["player_ids"]:
-                        c2["player_ids"].append(lid)
-            # 2코트에서 승자 1명 승급 (첫 승자)
+                        c2["player_ids"].insert(0, lid)
             promote = winners[0] if winners else None
             if promote and promote in c2["player_ids"]:
                 c2["player_ids"].remove(promote)
                 if promote not in c1["player_ids"]:
                     c1["player_ids"].append(promote)
         elif court == 2:
-            # 2코트 승자 → 1코트, 1코트 패자 → 2코트
             promote = winners[0] if winners else None
             if promote and promote in c2["player_ids"]:
                 c2["player_ids"].remove(promote)
@@ -390,7 +460,9 @@ class MatchEngine:
             if demote and demote in c1["player_ids"]:
                 c1["player_ids"].remove(demote)
                 if demote not in c2["player_ids"]:
-                    c2["player_ids"].append(demote)
+                    c2["player_ids"].insert(0, demote)
+
+        MatchEngine._trim_courts()
 
     @staticmethod
     def compute_rankings(mode: str) -> List[Dict[str, Any]]:
@@ -433,16 +505,19 @@ class MatchEngine:
             if not diffs:
                 total_diff = 0
                 used = []
+                wins = 0
+                losses = 0
             elif len(diffs) >= 5:
                 sorted_diffs = sorted(diffs, reverse=True)
                 used = sorted_diffs[:4]
                 total_diff = sum(used)
+                wins = sum(1 for d in used if d > 0)
+                losses = sum(1 for d in used if d < 0)
             else:
                 used = diffs
                 total_diff = sum(diffs)
-
-            wins = sum(1 for d in used if d > 0)
-            losses = sum(1 for d in used if d < 0)
+                wins = sum(1 for d in diffs if d > 0)
+                losses = sum(1 for d in diffs if d < 0)
             results.append(
                 {
                     "player_id": pid,
@@ -577,11 +652,26 @@ class MatchEngine:
 # FastAPI app
 # ---------------------------------------------------------------------------
 
-app = FastAPI(title="수정회 테니스 월례회 매니저 API", version="1.0.0")
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    bootstrap_state()
+    yield
+
+
+app = FastAPI(
+    title="수정회 테니스 월례회 매니저 API",
+    version="1.1.0",
+    lifespan=lifespan,
+)
+
+_cors_origins = os.environ.get(
+    "CORS_ORIGINS",
+    "http://localhost:5173,http://127.0.0.1:5173,http://localhost:8000",
+).split(",")
 
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["http://localhost:5173", "http://127.0.0.1:5173"],
+    allow_origins=[o.strip() for o in _cors_origins if o.strip()],
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
@@ -590,7 +680,7 @@ app.add_middleware(
 
 @app.get("/api/health")
 def health():
-    return {"status": "ok", "timestamp": datetime.utcnow().isoformat()}
+    return {"status": "ok", "timestamp": datetime.now(timezone.utc).isoformat()}
 
 
 @app.get("/api/settings")
@@ -606,6 +696,7 @@ def update_settings(body: SettingsUpdate):
         settings_db["mode"] = body.mode
     if body.courts is not None:
         settings_db["courts"] = max(1, min(body.courts, 6))
+    persist()
     return settings_db
 
 
@@ -624,6 +715,7 @@ def create_player(body: PlayerCreate):
         "partner_id": None,
     }
     players_db.append(player)
+    persist()
     return player
 
 
@@ -636,6 +728,7 @@ def update_player(player_id: int, body: PlayerUpdate):
         p["name"] = body.name.strip()
     if body.skill_rank is not None:
         p["skill_rank"] = body.skill_rank
+    persist()
     return p
 
 
@@ -643,6 +736,7 @@ def update_player(player_id: int, body: PlayerUpdate):
 def delete_player(player_id: int):
     global players_db
     players_db = [p for p in players_db if p["id"] != player_id]
+    persist()
     return {"ok": True}
 
 
@@ -674,6 +768,7 @@ def seed_players():
                 "partner_id": None,
             }
         )
+    persist()
     return {"message": "seeded", "count": len(players_db)}
 
 
@@ -710,6 +805,7 @@ def generate_matches(body: GenerateMatchesRequest = GenerateMatchesRequest()):
 
     settings_db["mode"] = mode
     settings_db["courts"] = courts
+    persist()
 
     return {"generated": len(matches_db), "matches": list_matches()}
 
@@ -725,9 +821,9 @@ def submit_result(match_id: int, body: MatchResult):
 
     if m.get("mode") == "UP_DOWN":
         MatchEngine.apply_up_down_result(m)
-        # 다음 라운드 매치 자동 생성
         _append_up_down_next_matches(m)
 
+    persist()
     return m
 
 
@@ -822,7 +918,12 @@ def reset_all():
     _next_match_id = 1
     settings_db["mode"] = "INDIVIDUAL"
     settings_db["courts"] = 2
+    persist()
     return {"ok": True}
+
+
+if FRONTEND_DIST.is_dir():
+    app.mount("/", StaticFiles(directory=FRONTEND_DIST, html=True), name="frontend")
 
 
 if __name__ == "__main__":

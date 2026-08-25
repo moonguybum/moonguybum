@@ -1,0 +1,237 @@
+"""SQLite 영구 저장소 — 앱 상태 load/save."""
+
+from __future__ import annotations
+
+import json
+import os
+import sqlite3
+from datetime import datetime, timezone
+from pathlib import Path
+from typing import Any, Dict, List, Tuple
+
+SCHEMA_PATH = Path(__file__).parent / "schema_sqlite.sql"
+DEFAULT_DB_PATH = Path(__file__).parent / "data" / "tennis.db"
+DB_PATH = Path(os.environ.get("TENNIS_DB_PATH", DEFAULT_DB_PATH))
+
+
+def _connect() -> sqlite3.Connection:
+    DB_PATH.parent.mkdir(parents=True, exist_ok=True)
+    conn = sqlite3.connect(DB_PATH)
+    conn.row_factory = sqlite3.Row
+    conn.execute("PRAGMA foreign_keys = ON")
+    return conn
+
+
+def init_db() -> None:
+    sql = SCHEMA_PATH.read_text(encoding="utf-8")
+    with _connect() as conn:
+        conn.executescript(sql)
+        conn.commit()
+
+
+def _json_load(raw: str | None, default: Any) -> Any:
+    if raw is None:
+        return default
+    return json.loads(raw)
+
+
+def load_state() -> Tuple[
+    List[Dict[str, Any]],
+    List[Dict[str, Any]],
+    Dict[str, Any],
+    List[Dict[str, Any]],
+    Dict[str, List[int]],
+    List[Dict[str, Any]],
+    int,
+    int,
+]:
+    init_db()
+    with _connect() as conn:
+        settings_row = conn.execute("SELECT mode, courts FROM settings WHERE id = 1").fetchone()
+        settings = {
+            "mode": settings_row["mode"] if settings_row else "INDIVIDUAL",
+            "courts": settings_row["courts"] if settings_row else 2,
+        }
+
+        players = [
+            {
+                "id": row["id"],
+                "name": row["name"],
+                "skill_rank": row["skill_rank"],
+                "team": row["team"],
+                "partner_id": row["partner_id"],
+            }
+            for row in conn.execute(
+                "SELECT id, name, skill_rank, team, partner_id FROM players ORDER BY id"
+            )
+        ]
+
+        matches = []
+        for row in conn.execute(
+            """
+            SELECT id, mode, round_num, court, team_a_ids, team_b_ids,
+                   team_a_label, team_b_label, score_a, score_b, status
+            FROM matches ORDER BY id
+            """
+        ):
+            m: Dict[str, Any] = {
+                "id": row["id"],
+                "mode": row["mode"],
+                "round_num": row["round_num"],
+                "court": row["court"],
+                "team_a_ids": _json_load(row["team_a_ids"], []),
+                "team_b_ids": _json_load(row["team_b_ids"], []),
+                "score_a": row["score_a"],
+                "score_b": row["score_b"],
+                "status": row["status"],
+            }
+            if row["team_a_label"]:
+                m["team_a_label"] = row["team_a_label"]
+            if row["team_b_label"]:
+                m["team_b_label"] = row["team_b_label"]
+            matches.append(m)
+
+        court_states = [
+            {
+                "court": row["court"],
+                "label": row["label"],
+                "player_ids": _json_load(row["player_ids"], []),
+            }
+            for row in conn.execute(
+                "SELECT court, label, player_ids FROM court_states ORDER BY court"
+            )
+        ]
+
+        team_row = conn.execute(
+            "SELECT value FROM meta WHERE key = 'team_assignments'"
+        ).fetchone()
+        team_assignments = _json_load(team_row["value"] if team_row else None, {})
+
+        fixed_row = conn.execute(
+            "SELECT value FROM meta WHERE key = 'fixed_teams'"
+        ).fetchone()
+        fixed_teams = _json_load(fixed_row["value"] if fixed_row else None, [])
+
+        next_player = conn.execute(
+            "SELECT value FROM meta WHERE key = 'next_player_id'"
+        ).fetchone()
+        next_match = conn.execute(
+            "SELECT value FROM meta WHERE key = 'next_match_id'"
+        ).fetchone()
+        next_player_id = int(next_player["value"]) if next_player else max(
+            (p["id"] for p in players), default=0
+        ) + 1
+        next_match_id = int(next_match["value"]) if next_match else max(
+            (m["id"] for m in matches), default=0
+        ) + 1
+
+    return (
+        players,
+        matches,
+        settings,
+        court_states,
+        team_assignments,
+        fixed_teams,
+        next_player_id,
+        next_match_id,
+    )
+
+
+def save_state(
+    players_db: List[Dict[str, Any]],
+    matches_db: List[Dict[str, Any]],
+    settings_db: Dict[str, Any],
+    court_states_db: List[Dict[str, Any]],
+    team_assignments_db: Dict[str, List[int]],
+    fixed_teams_db: List[Dict[str, Any]],
+    next_player_id: int,
+    next_match_id: int,
+) -> None:
+    init_db()
+    now = datetime.now(timezone.utc).isoformat()
+    with _connect() as conn:
+        conn.execute(
+            """
+            INSERT INTO settings (id, mode, courts, updated_at)
+            VALUES (1, ?, ?, ?)
+            ON CONFLICT(id) DO UPDATE SET
+                mode = excluded.mode,
+                courts = excluded.courts,
+                updated_at = excluded.updated_at
+            """,
+            (settings_db["mode"], settings_db["courts"], now),
+        )
+
+        conn.execute("DELETE FROM players")
+        for p in players_db:
+            conn.execute(
+                """
+                INSERT INTO players (id, name, skill_rank, team, partner_id)
+                VALUES (?, ?, ?, ?, ?)
+                """,
+                (p["id"], p["name"], p.get("skill_rank", 0), p.get("team"), p.get("partner_id")),
+            )
+
+        conn.execute("DELETE FROM matches")
+        for m in matches_db:
+            conn.execute(
+                """
+                INSERT INTO matches (
+                    id, mode, round_num, court, team_a_ids, team_b_ids,
+                    team_a_label, team_b_label, score_a, score_b, status
+                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                """,
+                (
+                    m["id"],
+                    m["mode"],
+                    m.get("round_num", 1),
+                    m.get("court"),
+                    json.dumps(m.get("team_a_ids", [])),
+                    json.dumps(m.get("team_b_ids", [])),
+                    m.get("team_a_label"),
+                    m.get("team_b_label"),
+                    m.get("score_a"),
+                    m.get("score_b"),
+                    m.get("status", "pending"),
+                ),
+            )
+
+        conn.execute("DELETE FROM court_states")
+        for cs in court_states_db:
+            conn.execute(
+                """
+                INSERT INTO court_states (court, label, player_ids)
+                VALUES (?, ?, ?)
+                """,
+                (cs["court"], cs.get("label"), json.dumps(cs.get("player_ids", []))),
+            )
+
+        conn.execute(
+            """
+            INSERT INTO meta (key, value) VALUES ('team_assignments', ?)
+            ON CONFLICT(key) DO UPDATE SET value = excluded.value
+            """,
+            (json.dumps(team_assignments_db),),
+        )
+        conn.execute(
+            """
+            INSERT INTO meta (key, value) VALUES ('fixed_teams', ?)
+            ON CONFLICT(key) DO UPDATE SET value = excluded.value
+            """,
+            (json.dumps(fixed_teams_db),),
+        )
+        conn.execute(
+            """
+            INSERT INTO meta (key, value) VALUES ('next_player_id', ?)
+            ON CONFLICT(key) DO UPDATE SET value = excluded.value
+            """,
+            (str(next_player_id),),
+        )
+        conn.execute(
+            """
+            INSERT INTO meta (key, value) VALUES ('next_match_id', ?)
+            ON CONFLICT(key) DO UPDATE SET value = excluded.value
+            """,
+            (str(next_match_id),),
+        )
+        conn.commit()
