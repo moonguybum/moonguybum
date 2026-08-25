@@ -78,3 +78,58 @@ def test_individual_six_player_rotation(client):
         json={"mode": "INDIVIDUAL", "courts": 2},
     ).json()
     assert len(gen["matches"]) == 5
+
+
+def test_monthly_archive_and_year_awards(client):
+    client.post("/api/reset")
+    names = ["Alpha", "Beta", "Gamma", "Delta", "Echo", "Foxtrot"]
+    for i, name in enumerate(names, 1):
+        client.post("/api/players", json={"name": name, "skill_rank": i})
+
+    client.put("/api/settings", json={"mode": "INDIVIDUAL", "courts": 2})
+    gen = client.post("/api/matches/generate", json={"mode": "INDIVIDUAL"}).json()
+
+    for idx, match in enumerate(gen["matches"]):
+        sa = 6 if idx % 2 == 0 else 3
+        sb = 3 if idx % 2 == 0 else 6
+        client.post(
+            f"/api/matches/{match['id']}/result",
+            json={"score_a": sa, "score_b": sb},
+        )
+
+    preview = client.get("/api/monthly-records/preview/current").json()
+    assert preview["results"]
+    assert preview["completed_matches"] == len(gen["matches"])
+
+    record = client.post(
+        "/api/monthly-records",
+        json={"year": 2026, "month": 3, "title": "2026년 3월 월례회"},
+    ).json()
+    assert record["year"] == 2026
+    assert record["month"] == 3
+    assert len(record["results"]) >= 3
+
+    record2 = client.post(
+        "/api/monthly-records",
+        json={"year": 2026, "month": 4, "title": "2026년 4월 월례회", "overwrite": False},
+    ).json()
+    assert record2["month"] == 4
+
+    awards = client.get("/api/year-awards/2026").json()
+    assert awards["monthly_count"] == 2
+    assert len(awards["ceremony_awards"]) == 3
+    assert awards["ceremony_awards"][0]["ceremony_rank"] == 1
+    assert awards["ceremony_awards"][0]["total_points"] >= awards["ceremony_awards"][1]["total_points"]
+
+    dup = client.post(
+        "/api/monthly-records",
+        json={"year": 2026, "month": 3},
+    )
+    assert dup.status_code == 409
+
+    overwrite = client.post(
+        "/api/monthly-records",
+        json={"year": 2026, "month": 3, "overwrite": True},
+    ).json()
+    assert overwrite["month"] == 3
+

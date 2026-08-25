@@ -17,7 +17,23 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel, Field
 
-from database import load_state, save_state
+from database import (
+    create_monthly_record,
+    delete_monthly_record,
+    get_monthly_record,
+    list_monthly_records,
+    load_award_settings,
+    load_state,
+    save_award_settings,
+    save_state,
+)
+from year_awards import (
+    aggregate_yearly_standings,
+    extract_award_entries,
+    normalize_rank_points,
+    points_for_rank,
+    select_ceremony_awards,
+)
 
 # ---------------------------------------------------------------------------
 # Runtime state (SQLite와 동기화)
@@ -110,6 +126,18 @@ class MatchResult(BaseModel):
 class GenerateMatchesRequest(BaseModel):
     mode: Optional[str] = None
     courts: Optional[int] = None
+
+
+class MonthlyRecordCreate(BaseModel):
+    year: Optional[int] = Field(None, ge=2000, le=2100)
+    month: Optional[int] = Field(None, ge=1, le=12)
+    title: Optional[str] = None
+    note: Optional[str] = None
+    overwrite: bool = False
+
+
+class AwardSettingsUpdate(BaseModel):
+    rank_points: Dict[str, int]
 
 
 # ---------------------------------------------------------------------------
@@ -920,6 +948,168 @@ def reset_all():
     settings_db["courts"] = 2
     persist()
     return {"ok": True}
+
+
+def _current_ranking_snapshot() -> Dict[str, Any]:
+    mode = settings_db["mode"]
+    rankings = MatchEngine.compute_rankings(mode)
+    enriched_court_states = None
+    if mode == "UP_DOWN":
+        enriched_court_states = [
+            {
+                **cs,
+                "players": [MatchEngine._player_name(pid) for pid in cs["player_ids"]],
+            }
+            for cs in court_states_db
+        ]
+    return {
+        "mode": mode,
+        "rankings": rankings,
+        "court_states": enriched_court_states,
+        "teams": team_assignments_db if mode == "THREE_KINGDOMS" else None,
+        "fixed_teams": fixed_teams_db if mode == "FIXED_TEAM" else None,
+    }
+
+
+def _build_monthly_award_results(snapshot: Dict[str, Any]) -> List[Dict[str, Any]]:
+    settings = load_award_settings()
+    rank_points = normalize_rank_points(settings.get("rank_points"))
+    player_names = {p["id"]: p["name"] for p in players_db}
+    entries = extract_award_entries(
+        snapshot["mode"],
+        snapshot["rankings"],
+        team_assignments=snapshot.get("teams") or team_assignments_db,
+        fixed_teams=snapshot.get("fixed_teams") or fixed_teams_db,
+        court_states=snapshot.get("court_states") or court_states_db,
+        player_names=player_names,
+    )
+    results = []
+    for entry in entries:
+        rank = int(entry["rank"])
+        results.append(
+            {
+                **entry,
+                "award_points": points_for_rank(rank, rank_points),
+            }
+        )
+    return results
+
+
+@app.get("/api/award-settings")
+def get_award_settings():
+    settings = load_award_settings()
+    return {
+        "rank_points": normalize_rank_points(settings.get("rank_points")),
+        "defaults": normalize_rank_points(None),
+    }
+
+
+@app.put("/api/award-settings")
+def update_award_settings(body: AwardSettingsUpdate):
+    if not body.rank_points:
+        raise HTTPException(400, "rank_points가 필요합니다.")
+    save_award_settings({"rank_points": body.rank_points})
+    return get_award_settings()
+
+
+@app.get("/api/monthly-records")
+def get_monthly_records(year: Optional[int] = None):
+    records = list_monthly_records(year)
+    return {"year": year, "records": records, "count": len(records)}
+
+
+@app.get("/api/monthly-records/preview/current")
+def preview_current_monthly_record():
+    completed = [m for m in matches_db if m["status"] == "completed"]
+    if not completed:
+        raise HTTPException(400, "완료된 경기가 없습니다. 결과 입력 후 확정하세요.")
+    snapshot = _current_ranking_snapshot()
+    results = _build_monthly_award_results(snapshot)
+    if not results:
+        raise HTTPException(400, "시상 대상 순위를 계산할 수 없습니다.")
+    now = datetime.now(timezone.utc)
+    return {
+        "year": now.year,
+        "month": now.month,
+        "title": f"{now.year}년 {now.month}월 월례회",
+        "mode": snapshot["mode"],
+        "results": results,
+        "completed_matches": len(completed),
+    }
+
+
+@app.post("/api/monthly-records")
+def archive_monthly_record(body: MonthlyRecordCreate = MonthlyRecordCreate()):
+    completed = [m for m in matches_db if m["status"] == "completed"]
+    if not completed:
+        raise HTTPException(400, "완료된 경기가 없습니다. 결과 입력 후 확정하세요.")
+
+    snapshot = _current_ranking_snapshot()
+    results = _build_monthly_award_results(snapshot)
+    if not results:
+        raise HTTPException(400, "시상 대상 순위를 계산할 수 없습니다.")
+
+    now = datetime.now(timezone.utc)
+    year = body.year or now.year
+    month = body.month or now.month
+    title = body.title or f"{year}년 {month}월 월례회"
+
+    try:
+        record = create_monthly_record(
+            year=year,
+            month=month,
+            title=title,
+            mode=snapshot["mode"],
+            note=body.note,
+            held_at=now.isoformat(),
+            results=results,
+            overwrite=body.overwrite,
+        )
+    except ValueError as exc:
+        raise HTTPException(409, str(exc)) from exc
+
+    return record
+
+
+@app.get("/api/monthly-records/{record_id}")
+def get_monthly_record_detail(record_id: int):
+    record = get_monthly_record(record_id)
+    if not record:
+        raise HTTPException(404, "월례회 기록을 찾을 수 없습니다.")
+    return record
+
+
+@app.delete("/api/monthly-records/{record_id}")
+def remove_monthly_record(record_id: int):
+    if not delete_monthly_record(record_id):
+        raise HTTPException(404, "월례회 기록을 찾을 수 없습니다.")
+    return {"ok": True}
+
+
+@app.get("/api/year-awards/{year}")
+def get_year_awards(year: int):
+    settings = load_award_settings()
+    rank_points = normalize_rank_points(settings.get("rank_points"))
+    records = list_monthly_records(year)
+    standings = aggregate_yearly_standings(records, rank_points)
+    ceremony_awards = select_ceremony_awards(standings, limit=3)
+    return {
+        "year": year,
+        "rank_points": rank_points,
+        "monthly_count": len(records),
+        "records": [
+            {
+                "id": r["id"],
+                "month": r["month"],
+                "title": r["title"],
+                "mode": r["mode"],
+                "held_at": r["held_at"],
+            }
+            for r in records
+        ],
+        "standings": standings,
+        "ceremony_awards": ceremony_awards,
+    }
 
 
 if FRONTEND_DIST.is_dir():

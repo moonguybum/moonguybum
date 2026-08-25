@@ -13,6 +13,9 @@ import {
   Crown,
   ArrowUpDown,
   UserCheck,
+  Medal,
+  Calendar,
+  Star,
 } from 'lucide-react'
 
 const API = '/api'
@@ -635,12 +638,253 @@ function RankingTab({ mode, rankingData }) {
   }
 }
 
+const AWARD_MEDALS = {
+  1: '🥇',
+  2: '🥈',
+  3: '🥉',
+}
+
+function AwardsTab({ year, onYearChange, onRefresh }) {
+  const [yearData, setYearData] = useState(null)
+  const [monthlyRecords, setMonthlyRecords] = useState([])
+  const [preview, setPreview] = useState(null)
+  const [loading, setLoading] = useState(false)
+  const [archiving, setArchiving] = useState(false)
+
+  const loadAwards = useCallback(async () => {
+    setLoading(true)
+    try {
+      const [awards, records] = await Promise.all([
+        api(`/year-awards/${year}`),
+        api(`/monthly-records?year=${year}`),
+      ])
+      setYearData(awards)
+      setMonthlyRecords(records.records || [])
+    } catch (e) {
+      alert(e.message)
+    } finally {
+      setLoading(false)
+    }
+  }, [year])
+
+  const loadPreview = useCallback(async () => {
+    try {
+      const data = await api('/monthly-records/preview/current')
+      setPreview(data)
+    } catch (e) {
+      setPreview(null)
+    }
+  }, [])
+
+  useEffect(() => {
+    loadAwards()
+    loadPreview()
+  }, [loadAwards, loadPreview])
+
+  const handleArchive = async (overwrite = false) => {
+    if (!overwrite && !window.confirm('이번 월례회 성적을 확정하고 연말 시상 집계에 반영할까요?')) {
+      return
+    }
+    setArchiving(true)
+    try {
+      await api('/monthly-records', {
+        method: 'POST',
+        body: JSON.stringify({ year, overwrite }),
+      })
+      await loadAwards()
+      await loadPreview()
+      if (onRefresh) await onRefresh()
+      alert('월례회 성적이 저장되었습니다.')
+    } catch (e) {
+      if (e.message.includes('이미') && window.confirm(`${e.message}\n덮어쓰시겠습니까?`)) {
+        await handleArchive(true)
+        return
+      }
+      alert(e.message)
+    } finally {
+      setArchiving(false)
+    }
+  }
+
+  const handleDeleteRecord = async (id) => {
+    if (!window.confirm('이 월례회 기록을 삭제할까요?')) return
+    await api(`/monthly-records/${id}`, { method: 'DELETE' })
+    await loadAwards()
+  }
+
+  const ceremonyAwards = yearData?.ceremony_awards ?? []
+  const standings = yearData?.standings ?? []
+  const rankPoints = yearData?.rank_points ?? {}
+
+  return (
+    <div className="space-y-4 pb-4">
+      <section className="card">
+        <div className="flex items-center justify-between gap-3">
+          <h2 className="text-sm font-bold text-slate-500 uppercase tracking-wide flex items-center gap-1">
+            <Calendar size={16} /> 연말 시상 집계
+          </h2>
+          <select
+            value={year}
+            onChange={(e) => onYearChange(Number(e.target.value))}
+            className="bg-slate-50 border border-slate-200 rounded-xl py-2 px-3 text-sm font-semibold"
+          >
+            {[year - 1, year, year + 1].map((y) => (
+              <option key={y} value={y}>{y}년</option>
+            ))}
+          </select>
+        </div>
+        <p className="mt-2 text-sm text-slate-500">
+          월례회 확정 시 순위별 포인트가 누적됩니다.
+          {' '}
+          (1위 {rankPoints[1] ?? 10}점 · 2위 {rankPoints[2] ?? 7}점 · 3위 {rankPoints[3] ?? 5}점)
+        </p>
+      </section>
+
+      {preview && (
+        <section className="card border-court-green/30 bg-court-green/5">
+          <h3 className="font-bold text-court-green flex items-center gap-2">
+            <Star size={18} /> 이번 월례회 확정
+          </h3>
+          <p className="text-sm text-slate-600 mt-1">{preview.title}</p>
+          <p className="text-xs text-slate-400 mt-1">
+            완료 경기 {preview.completed_matches}건 · 상위 {preview.results?.length}명 기록
+          </p>
+          <ul className="mt-3 space-y-1">
+            {preview.results?.slice(0, 6).map((r) => (
+              <li key={`${r.player_name}-${r.rank}`} className="flex justify-between text-sm py-1">
+                <span>{r.rank}위 {r.player_name}</span>
+                <span className="text-court-green font-semibold">+{r.award_points}점</span>
+              </li>
+            ))}
+          </ul>
+          <button
+            type="button"
+            onClick={() => handleArchive(false)}
+            disabled={archiving}
+            className="btn-primary w-full mt-4"
+          >
+            {archiving ? '저장 중…' : '월례회 성적 확정'}
+          </button>
+        </section>
+      )}
+
+      <section className="card">
+        <h3 className="text-sm font-bold text-slate-500 uppercase tracking-wide flex items-center gap-1 mb-3">
+          <Medal size={16} /> {year}년 연말총회 시상 ({yearData?.monthly_count ?? 0}회 집계)
+        </h3>
+        {loading ? (
+          <div className="flex justify-center py-8">
+            <Loader2 className="animate-spin text-court-green" size={28} />
+          </div>
+        ) : ceremonyAwards.length === 0 ? (
+          <p className="text-center text-slate-400 py-8">
+            확정된 월례회 기록이 없습니다.<br />
+            경기 종료 후 「월례회 성적 확정」을 눌러주세요.
+          </p>
+        ) : (
+          <div className="space-y-3">
+            {ceremonyAwards.map((award) => (
+              <div
+                key={award.player_name}
+                className={`rounded-2xl p-4 ${
+                  award.ceremony_rank === 1
+                    ? 'bg-amber-50 border border-amber-200'
+                    : award.ceremony_rank === 2
+                      ? 'bg-slate-100 border border-slate-200'
+                      : 'bg-orange-50 border border-orange-200'
+                }`}
+              >
+                <div className="flex items-center gap-3">
+                  <span className="text-3xl">{AWARD_MEDALS[award.ceremony_rank]}</span>
+                  <div className="flex-1">
+                    <p className="text-lg font-bold">{award.player_name}</p>
+                    <p className="text-xs text-slate-500">
+                      {award.months_played}회 참가 · 1위 {award.first_places}회 · 2위 {award.second_places}회 · 3위 {award.third_places}회
+                    </p>
+                  </div>
+                  <div className="text-right">
+                    <p className="text-2xl font-black text-court-green">{award.total_points}</p>
+                    <p className="text-xs text-slate-400">누적점</p>
+                  </div>
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
+      </section>
+
+      {standings.length > 0 && (
+        <section className="card">
+          <h3 className="text-sm font-bold text-slate-500 uppercase tracking-wide mb-3">
+            {year}년 전체 순위
+          </h3>
+          <div className="space-y-2">
+            {standings.map((row) => (
+              <div key={row.player_name} className="flex items-center gap-3 py-2 px-3 bg-slate-50 rounded-xl">
+                <span className={`w-8 text-center font-black ${
+                  row.year_rank <= 3 ? 'text-amber-600' : 'text-slate-300'
+                }`}>
+                  {row.year_rank}
+                </span>
+                <div className="flex-1">
+                  <p className="font-medium">{row.player_name}</p>
+                  <p className="text-xs text-slate-400">{row.months_played}회 참가</p>
+                </div>
+                <span className="font-bold text-court-green">{row.total_points}점</span>
+              </div>
+            ))}
+          </div>
+        </section>
+      )}
+
+      <section className="card">
+        <h3 className="text-sm font-bold text-slate-500 uppercase tracking-wide mb-3">
+          월례회 기록
+        </h3>
+        {monthlyRecords.length === 0 ? (
+          <p className="text-center text-slate-400 py-6">저장된 월례회 기록이 없습니다.</p>
+        ) : (
+          <ul className="space-y-2">
+            {monthlyRecords.map((record) => (
+              <li key={record.id} className="py-3 px-3 bg-slate-50 rounded-xl">
+                <div className="flex items-start justify-between gap-2">
+                  <div>
+                    <p className="font-semibold">{record.title}</p>
+                    <p className="text-xs text-slate-400 mt-1">
+                      {record.mode} · {record.results?.length ?? 0}명 기록
+                    </p>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => handleDeleteRecord(record.id)}
+                    className="text-slate-400 hover:text-red-500 p-1"
+                  >
+                    <Trash2 size={16} />
+                  </button>
+                </div>
+                <div className="mt-2 flex flex-wrap gap-1">
+                  {record.results?.slice(0, 3).map((r) => (
+                    <span key={`${record.id}-${r.player_name}`} className="text-xs bg-white px-2 py-0.5 rounded-full">
+                      {r.rank}위 {r.player_name} (+{r.award_points})
+                    </span>
+                  ))}
+                </div>
+              </li>
+            ))}
+          </ul>
+        )}
+      </section>
+    </div>
+  )
+}
+
 export default function App() {
   const [tab, setTab] = useState('settings')
   const [settings, setSettings] = useState({ mode: 'INDIVIDUAL', courts: 2 })
   const [players, setPlayers] = useState([])
   const [matches, setMatches] = useState([])
   const [rankingData, setRankingData] = useState(null)
+  const [awardYear, setAwardYear] = useState(new Date().getFullYear())
   const [loading, setLoading] = useState(false)
   const [booting, setBooting] = useState(true)
 
@@ -708,6 +952,7 @@ export default function App() {
     { id: 'settings', label: '설정', icon: Settings },
     { id: 'matches', label: '대진표', icon: LayoutGrid },
     { id: 'ranking', label: '순위', icon: Trophy },
+    { id: 'awards', label: '시상', icon: Medal },
   ]
 
   if (booting) {
@@ -750,6 +995,13 @@ export default function App() {
         )}
         {tab === 'ranking' && (
           <RankingTab mode={settings.mode} rankingData={rankingData} />
+        )}
+        {tab === 'awards' && (
+          <AwardsTab
+            year={awardYear}
+            onYearChange={setAwardYear}
+            onRefresh={refreshAll}
+          />
         )}
       </main>
 
