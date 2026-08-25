@@ -1,0 +1,37 @@
+name: 🛡️ PR 보안 검증 (PR Security Check)
+
+# Pull Request가 main 브랜치를 대상으로 열릴 때만 실행
+on:
+  pull_request:
+    branches: [ "main" ]
+
+jobs:
+  # -------------------------------------------------------
+  # PR 기본 보안 검증
+  # main 브랜치로의 모든 변경은 PR을 통해야 합니다.
+  # -------------------------------------------------------
+  pr-security-check:
+    name: ✅ PR 보안 요건 확인
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      pull-requests: read
+
+    steps:
+      - name: 코드 체크아웃
+        uses: actions/checkout@v4
+
+      - name: PR 제목 형식 확인
+        run: |
+          PR_TITLE="${{ github.event.pull_request.title }}"
+          echo "PR 제목: $PR_TITLE"
+          if [ -z "$PR_TITLE" ]; then
+            echo "❌ PR 제목이 비어있습니다. PR 제목을 입력해주세요."
+            exit 1
+          fi
+          echo "✅ PR 제목 확인 완료"
+
+      - name: 파일 변경 내역 출력
+        run: |
+          echo "변경된 파일 목록:"
+          git diff --name-only origin/${{ github.base_ref }}...HEAD || echo "(변경 내역을 불러올 수 없습니다)"
