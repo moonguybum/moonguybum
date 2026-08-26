@@ -1,0 +1,223 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="description" content="프로그램을 만드는 과정을 집 짓기에 비유하여 쉽게 배우는 인터랙티브 교육 사이트">
+  <title>코딩으로 집 짓기</title>
+  <link rel="icon" href="data:,">
+  <link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+  <a href="#main-content" class="skip-link">본문으로 건너뛰기</a>
+
+  <header class="site-header" role="banner">
+    <div class="header-inner">
+      <button type="button" class="logo-btn" id="btn-home" aria-label="홈으로 이동">
+        <span class="logo-icon" aria-hidden="true">
+          <svg viewBox="0 0 32 32" width="28" height="28" fill="none" xmlns="http://www.w3.org/2000/svg">
+            <path d="M4 14L16 4l12 10v14H4V14z" fill="var(--color-html)" stroke="var(--color-text)" stroke-width="1.5"/>
+            <rect x="12" y="18" width="8" height="10" fill="var(--color-bg)" stroke="var(--color-text)" stroke-width="1"/>
+          </svg>
+        </span>
+        <span class="logo-text">코딩으로 집 짓기</span>
+      </button>
+      <nav class="header-nav" aria-label="주요 탐색">
+        <button type="button" class="nav-btn" id="btn-progress" aria-label="학습 진행 상황 보기">
+          진행률 <span id="header-progress-text">0%</span>
+        </button>
+      </nav>
+    </div>
+  </header>
+
+  <main id="main-content" class="main-content" role="main">
+    <!-- 홈 화면 -->
+    <section id="view-home" class="view view-home" aria-labelledby="home-title">
+      <div class="home-hero">
+        <div class="home-text">
+          <h1 id="home-title" class="home-title">코딩으로 집 짓기</h1>
+          <p class="home-subtitle">프로그램은 어떻게 한 채의 집이 될까요?</p>
+          <p class="home-intro">
+            웹사이트, 앱, 게임처럼 우리가 쓰는 프로그램도 집을 짓는 것과 비슷합니다.
+            기획안을 쓰고, 설계도를 그리고, 기초를 닦고, 뼈대를 세우고, 내부를 만들고, 외관을 꾸미고, 수도·전기를 연결합니다.
+            각 공사 단계를 눈으로 보면서, 같은 순서로 프로그램이 만들어지는 과정을 함께 배워보세요.
+          </p>
+          <button type="button" class="btn btn-primary btn-large" id="btn-start">
+            집 짓기 시작하기
+          </button>
+        </div>
+        <div class="home-visual" aria-hidden="true">
+          <div class="house-comparison">
+            <div class="house-before">
+              <p class="house-label">시작 — 빈 부지</p>
+              <div class="house-svg-wrap house-svg-large" id="house-before"></div>
+            </div>
+            <div class="house-arrow">→</div>
+            <div class="house-after">
+              <p class="house-label">완성 — 입주</p>
+              <div class="house-svg-wrap house-svg-large" id="house-after"></div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="home-progress-card">
+          <h2 class="section-heading">전체 학습 진행률</h2>
+          <p class="home-progress-hint">단계를 따라가면 위 공사 현장처럼 집이 차곡차곡 완성됩니다.</p>
+        <div class="progress-bar-wrap" role="progressbar" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0" id="home-progress-bar">
+          <div class="progress-bar-fill" id="home-progress-fill"></div>
+        </div>
+        <p class="progress-text" id="home-progress-text">0 / 10 단계 완료</p>
+        <div class="step-dots" id="home-step-dots" aria-label="단계별 진행 상태"></div>
+      </div>
+    </section>
+
+    <!-- 학습 단계 화면 -->
+    <section id="view-step" class="view view-step hidden" aria-labelledby="step-title">
+      <div class="step-header">
+        <p class="step-indicator" id="step-indicator" aria-live="polite"></p>
+        <h2 id="step-title" class="step-title"></h2>
+      </div>
+
+      <div class="step-layout">
+        <aside class="step-sidebar" aria-label="공정 목록">
+          <ol class="step-list" id="step-list" aria-label="전체 단계 목록"></ol>
+        </aside>
+
+        <div class="step-content">
+          <!-- 공사 현장 메인 시각화 -->
+          <section class="construction-theater" aria-labelledby="theater-title">
+            <div class="theater-header">
+              <h3 id="theater-title" class="theater-title">공사 현장 — 집이 이렇게 완성됩니다</h3>
+              <p class="theater-phase" id="theater-phase-label"></p>
+            </div>
+            <div class="theater-stage" id="theater-stage"></div>
+            <div id="construction-timeline-wrap"></div>
+          </section>
+
+          <!-- 집 짓기 ⟷ 코딩 병렬 설명 -->
+          <div class="parallel-panels">
+            <article class="parallel-panel house-panel content-card">
+              <h3 class="parallel-panel-title">
+                <span class="panel-badge house-badge" aria-hidden="true">🏗️</span>
+                지금 집에서는
+              </h3>
+              <p class="panel-stage" id="house-stage-label"></p>
+              <p class="panel-lead" id="house-now-text"></p>
+              <ul class="concept-list" id="architecture-list"></ul>
+            </article>
+
+            <div class="parallel-connector" aria-hidden="true">
+              <span class="connector-icon">⟷</span>
+              <span class="connector-text">같은 단계</span>
+            </div>
+
+            <article class="parallel-panel coding-panel content-card">
+              <h3 class="parallel-panel-title">
+                <span class="panel-badge coding-badge" aria-hidden="true">💻</span>
+                프로그램에서는
+              </h3>
+              <p class="panel-stage" id="coding-parallel-title"></p>
+              <p class="panel-lead" id="coding-parallel-lead"></p>
+              <ul class="concept-tags" id="coding-tags"></ul>
+              <p class="content-example" id="coding-example"></p>
+            </article>
+          </div>
+
+          <article class="content-card key-card" id="key-explanation-card">
+            <h3 class="content-card-title">
+              <span class="card-icon" aria-hidden="true">💡</span>
+              한눈에 이해하기
+            </h3>
+            <p class="key-explanation" id="key-explanation"></p>
+          </article>
+
+          <div class="step-actions" id="step-special-actions"></div>
+
+          <article class="quiz-card" id="quiz-section" aria-labelledby="quiz-title">
+            <h3 id="quiz-title" class="content-card-title">
+              <span class="card-icon" aria-hidden="true">📝</span>
+              단계 퀴즈
+            </h3>
+            <p class="quiz-question" id="quiz-question"></p>
+            <div class="quiz-options" id="quiz-options" role="group" aria-label="퀴즈 선택지"></div>
+            <div class="quiz-feedback hidden" id="quiz-feedback" role="status" aria-live="polite">
+              <p class="feedback-result" id="feedback-result"></p>
+              <p class="feedback-explanation" id="feedback-explanation"></p>
+              <p class="feedback-metaphor" id="feedback-metaphor"></p>
+              <button type="button" class="btn btn-secondary" id="btn-retry-quiz">다시 선택하기</button>
+            </div>
+          </article>
+
+          <nav class="step-nav" aria-label="단계 이동">
+            <button type="button" class="btn btn-secondary" id="btn-prev-step">이전 단계</button>
+            <button type="button" class="btn btn-primary" id="btn-next-step">다음 단계</button>
+          </nav>
+        </div>
+      </div>
+    </section>
+
+    <!-- 건축 도구함 (4단계) -->
+    <section id="view-toolbox" class="view view-toolbox hidden" aria-labelledby="toolbox-title">
+      <div class="toolbox-header">
+        <button type="button" class="btn btn-text" id="btn-back-from-toolbox">← 4단계로 돌아가기</button>
+        <h2 id="toolbox-title" class="toolbox-title">건축 도구함</h2>
+        <p class="toolbox-desc">집을 짓는 데 쓰이는 기술들을 종류별로 살펴보세요. 카드를 클릭하면 자세한 설명이 펼쳐집니다.</p>
+      </div>
+
+      <div class="filter-bar" role="group" aria-label="기술 분류 필터" id="tech-filters"></div>
+
+      <div class="tech-cards-grid" id="tech-cards-grid" role="list"></div>
+    </section>
+
+    <!-- 할 일 추가 시뮬레이션 -->
+    <section id="view-simulation" class="view view-simulation hidden" aria-labelledby="simulation-title">
+      <div class="simulation-header">
+        <button type="button" class="btn btn-text" id="btn-back-from-simulation">← 학습으로 돌아가기</button>
+        <h2 id="simulation-title" class="simulation-title">할 일 추가하기</h2>
+        <p class="simulation-desc">할 일을 입력하고 추가 버튼을 누르면, 데이터가 화면에서 서버, 데이터베이스까지 이동하는 과정을 단계별로 볼 수 있습니다.</p>
+      </div>
+
+      <div class="simulation-layout">
+        <div class="simulation-demo">
+          <div class="todo-app-mock" aria-label="할 일 앱 미리보기">
+            <label for="todo-input" class="todo-label">새 할 일</label>
+            <div class="todo-input-row">
+              <input type="text" id="todo-input" class="todo-input" placeholder="예: 우유 사기" maxlength="100">
+              <button type="button" class="btn btn-primary" id="btn-add-todo">추가</button>
+            </div>
+            <ul class="todo-list" id="todo-list" aria-label="할 일 목록"></ul>
+          </div>
+        </div>
+
+        <div class="simulation-pipeline" aria-label="데이터 이동 과정">
+          <div class="pipeline-steps" id="pipeline-steps"></div>
+          <div class="pipeline-detail" id="pipeline-detail">
+            <p class="pipeline-step-num" id="pipeline-step-num"></p>
+            <p class="pipeline-tech" id="pipeline-tech"></p>
+            <p class="pipeline-desc" id="pipeline-desc"></p>
+          </div>
+          <div class="pipeline-nav">
+            <button type="button" class="btn btn-secondary" id="btn-sim-prev">이전 단계</button>
+            <button type="button" class="btn btn-primary" id="btn-sim-next">다음 단계</button>
+            <button type="button" class="btn btn-text" id="btn-sim-reset">처음부터</button>
+          </div>
+        </div>
+      </div>
+    </section>
+  </main>
+
+  <footer class="site-footer" role="contentinfo">
+    <div class="footer-inner">
+      <p>코딩으로 집 짓기 — 프로그램 만들기를 쉽게 이해하는 교육 사이트</p>
+      <button type="button" class="btn btn-text btn-danger" id="btn-reset-all">전체 초기화</button>
+    </div>
+  </footer>
+
+  <div id="aria-announcer" class="visually-hidden" aria-live="polite" aria-atomic="true"></div>
+
+  <script src="js/data.js"></script>
+  <script src="js/house-visual.js"></script>
+  <script src="js/app.js"></script>
+</body>
+</html>
