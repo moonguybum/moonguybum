@@ -28,7 +28,10 @@ coding-house/
 │  └─ style.css        # 반응형 스타일, 기술별 색상, 집 일러스트
 ├─ js/
 │  ├─ data.js          # 학습 단계, 기술 카드, 퀴즈, 시뮬레이션 데이터
+│  ├─ house-visual.js  # 공사 현장 SVG 일러스트
 │  └─ app.js           # 화면 전환, 상호작용, localStorage 관리
+├─ start.sh            # Mac/Linux 실행 스크립트
+├─ start.bat           # Windows 실행 스크립트
 ├─ assets/
 │  ├─ images/          # 이미지 교체용 플레이스홀더 폴더
 │  └─ icons/           # 아이콘 교체용 플레이스홀더 폴더
