@@ -274,11 +274,16 @@ body {
   max-width: 540px;
 }
 
+.home-visual {
+  min-width: 0;
+}
+
 .house-comparison {
   display: flex;
   align-items: center;
   justify-content: center;
   gap: 16px;
+  width: 100%;
 }
 
 .house-before,
@@ -317,6 +322,12 @@ body {
 
 .section-heading {
   font-size: 1.1rem;
+  margin: 0 0 8px;
+}
+
+.home-progress-hint {
+  font-size: 0.9rem;
+  color: var(--color-text-muted);
   margin: 0 0 16px;
 }
 
@@ -374,6 +385,408 @@ body {
   box-shadow: 0 0 0 3px var(--color-primary-light);
 }
 
+.house-svg-large {
+  width: 100%;
+  max-width: 100%;
+  height: auto;
+  min-height: 200px;
+}
+
+.house-svg-large .construction-scene-wrap {
+  border-radius: var(--radius-sm);
+}
+
+.house-comparison .construction-scene-wrap {
+  min-height: 180px;
+}
+
+/* ===== Immersive construction scene ===== */
+.construction-scene-wrap {
+  position: relative;
+  width: 100%;
+  overflow: hidden;
+  background: #5b8fd9;
+}
+
+.construction-scene-wrap .construction-svg {
+  display: block;
+  width: 100%;
+  height: auto;
+  min-height: 280px;
+  vertical-align: top;
+}
+
+.scene-atmosphere {
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(
+    180deg,
+    rgba(91, 143, 217, 0.15) 0%,
+    transparent 40%,
+    rgba(74, 125, 72, 0.08) 100%
+  );
+  pointer-events: none;
+  z-index: 2;
+}
+
+.scene-light-rays {
+  position: absolute;
+  top: -20%;
+  right: 5%;
+  width: 45%;
+  height: 70%;
+  background: radial-gradient(ellipse at 70% 20%, rgba(255, 220, 120, 0.35) 0%, transparent 65%);
+  pointer-events: none;
+  z-index: 1;
+  animation: sunRays 8s ease-in-out infinite alternate;
+}
+
+.scene-vignette {
+  position: absolute;
+  inset: 0;
+  box-shadow: inset 0 0 80px rgba(20, 40, 30, 0.2);
+  pointer-events: none;
+  z-index: 3;
+}
+
+.scene-ground-fog {
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  height: 25%;
+  background: linear-gradient(to top, rgba(240, 228, 212, 0.25), transparent);
+  pointer-events: none;
+  z-index: 2;
+}
+
+@keyframes sunRays {
+  from { opacity: 0.7; transform: scale(1); }
+  to { opacity: 1; transform: scale(1.05); }
+}
+
+.scene-sun-halo {
+  animation: sunPulse 4s ease-in-out infinite;
+}
+
+@keyframes sunPulse {
+  0%, 100% { opacity: 0.12; r: 55; }
+  50% { opacity: 0.22; }
+}
+
+.scene-cloud-1 {
+  animation: cloudDrift1 45s linear infinite;
+}
+
+.scene-cloud-2 {
+  animation: cloudDrift2 55s linear infinite;
+}
+
+@keyframes cloudDrift1 {
+  from { transform: translateX(0); }
+  to { transform: translateX(40px); }
+}
+
+@keyframes cloudDrift2 {
+  from { transform: translateX(0); }
+  to { transform: translateX(-30px); }
+}
+
+.scene-crane {
+  animation: craneSway 6s ease-in-out infinite;
+  transform-origin: 0px 180px;
+}
+
+@keyframes craneSway {
+  0%, 100% { transform: rotate(0deg); }
+  50% { transform: rotate(1.5deg); }
+}
+
+.blueprint-pulse {
+  animation: blueprintPulse 2.5s ease-in-out infinite;
+}
+
+@keyframes blueprintPulse {
+  0%, 100% { opacity: 0.6; }
+  50% { opacity: 1; }
+}
+
+.pipe-flow-water {
+  stroke-dasharray: 12 8;
+  animation: pipeFlow 1.2s linear infinite;
+}
+
+.pipe-flow-electric {
+  stroke-dasharray: 8 6;
+  animation: pipeFlow 0.8s linear infinite;
+}
+
+@keyframes pipeFlow {
+  to { stroke-dashoffset: -40; }
+}
+
+.pipe-node {
+  animation: nodeGlow 1.5s ease-in-out infinite alternate;
+}
+
+@keyframes nodeGlow {
+  from { opacity: 0.7; }
+  to { opacity: 1; }
+}
+
+.scene-dust circle {
+  animation: dustFloat 3s ease-in-out infinite;
+}
+
+.scene-dust circle:nth-child(2) { animation-delay: 0.5s; }
+.scene-dust circle:nth-child(3) { animation-delay: 1s; }
+
+@keyframes dustFloat {
+  0%, 100% { transform: translateY(0); opacity: 0.5; }
+  50% { transform: translateY(-8px); opacity: 0.8; }
+}
+
+.layer-highlight {
+  animation: layerReveal 1.2s ease-out, layerGlow 2s ease-in-out 2;
+}
+
+@keyframes layerReveal {
+  from { opacity: 0; transform: translateY(12px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+@keyframes layerGlow {
+  0%, 100% { filter: brightness(1); }
+  50% { filter: brightness(1.12); }
+}
+
+.scene-worker {
+  animation: workerBob 3s ease-in-out infinite;
+}
+
+@keyframes workerBob {
+  0%, 100% { transform: translate(130px, 248px); }
+  50% { transform: translate(132px, 246px); }
+}
+
+/* Construction theater */
+.construction-theater {
+  background: linear-gradient(145deg, #f8f4ee 0%, #eef6ea 100%);
+  border: 2px solid var(--color-primary);
+  border-radius: var(--radius);
+  padding: 20px;
+  margin-bottom: 24px;
+  box-shadow: var(--shadow-lg), 0 12px 40px rgba(74, 124, 89, 0.12);
+}
+
+.theater-header {
+  margin-bottom: 16px;
+}
+
+.theater-title {
+  font-size: 1.15rem;
+  margin: 0 0 6px;
+  color: var(--color-primary-dark);
+}
+
+.theater-phase {
+  font-size: 0.95rem;
+  color: var(--color-secondary);
+  font-weight: 600;
+  margin: 0;
+}
+
+.theater-stage {
+  border-radius: var(--radius-sm);
+  border: 2px solid rgba(74, 124, 89, 0.25);
+  overflow: hidden;
+  margin-bottom: 16px;
+  box-shadow: 0 8px 32px rgba(30, 50, 40, 0.15);
+}
+
+.theater-stage .construction-scene-wrap .construction-svg {
+  min-height: 320px;
+}
+
+@media (min-width: 900px) {
+  .theater-stage .construction-scene-wrap .construction-svg {
+    min-height: 380px;
+  }
+
+  .home-comparison {
+    grid-template-columns: 1fr auto 1fr;
+  }
+
+  .house-comparison {
+    display: grid;
+    grid-template-columns: 1fr auto 1fr;
+    gap: 12px;
+    align-items: center;
+    width: 100%;
+  }
+}
+
+.construction-svg .layer-highlight {
+  animation: layerReveal 1.2s ease-out, layerGlow 2s ease-in-out 2;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .scene-light-rays,
+  .scene-sun-halo,
+  .scene-cloud-1,
+  .scene-cloud-2,
+  .scene-crane,
+  .blueprint-pulse,
+  .pipe-flow-water,
+  .pipe-flow-electric,
+  .pipe-node,
+  .scene-dust circle,
+  .scene-worker,
+  .construction-svg .layer-highlight {
+    animation: none !important;
+  }
+
+  .layer-highlight {
+    filter: brightness(1.08);
+  }
+}
+
+/* Construction timeline */
+.construction-timeline {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+  list-style: none;
+  padding: 0;
+  margin: 0;
+  justify-content: space-between;
+}
+
+.timeline-item {
+  flex: 1 1 auto;
+  min-width: 52px;
+  text-align: center;
+  padding: 6px 2px;
+  opacity: 0.45;
+}
+
+.timeline-item.built {
+  opacity: 1;
+}
+
+.timeline-item.done .timeline-dot {
+  background: var(--color-primary);
+  color: white;
+  border-color: var(--color-primary);
+}
+
+.timeline-item.current .timeline-dot {
+  border-color: var(--color-warning);
+  background: #fff8e6;
+  color: var(--color-primary-dark);
+  box-shadow: 0 0 0 2px var(--color-warning);
+}
+
+.timeline-dot {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  border-radius: 50%;
+  border: 2px solid var(--color-border);
+  background: var(--color-bg);
+  font-size: 0.7rem;
+  font-weight: 700;
+  margin-bottom: 4px;
+}
+
+.timeline-label {
+  display: block;
+  font-size: 0.6rem;
+  color: var(--color-text-muted);
+  line-height: 1.2;
+}
+
+.timeline-item.current .timeline-label {
+  color: var(--color-primary-dark);
+  font-weight: 600;
+}
+
+/* Parallel panels — 집 ⟷ 코딩 */
+.parallel-panels {
+  display: grid;
+  grid-template-columns: 1fr auto 1fr;
+  gap: 16px;
+  align-items: stretch;
+  margin-bottom: 20px;
+}
+
+.parallel-panel {
+  margin-bottom: 0;
+}
+
+.parallel-panel-title {
+  font-size: 1.05rem;
+  margin: 0 0 12px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.panel-badge {
+  font-size: 1.2rem;
+}
+
+.house-panel {
+  border-left: 4px solid var(--color-primary);
+}
+
+.coding-panel {
+  border-left: 4px solid var(--color-secondary);
+}
+
+.panel-stage {
+  font-weight: 600;
+  color: var(--color-primary-dark);
+  margin: 0 0 8px;
+  font-size: 0.95rem;
+}
+
+.coding-panel .panel-stage {
+  color: var(--color-secondary);
+}
+
+.panel-lead {
+  margin: 0 0 12px;
+  color: var(--color-text-muted);
+  font-size: 0.95rem;
+  line-height: 1.6;
+}
+
+.parallel-connector {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 4px;
+  padding: 8px;
+  color: var(--color-text-muted);
+}
+
+.connector-icon {
+  font-size: 1.5rem;
+  color: var(--color-primary);
+  font-weight: bold;
+}
+
+.connector-text {
+  font-size: 0.75rem;
+  font-weight: 600;
+  writing-mode: vertical-rl;
+  text-orientation: mixed;
+}
+
 /* Step view */
 .step-header {
   margin-bottom: 24px;
@@ -394,8 +807,8 @@ body {
 
 .step-layout {
   display: grid;
-  grid-template-columns: 240px 1fr;
-  gap: 32px;
+  grid-template-columns: 200px 1fr;
+  gap: 24px;
 }
 
 .step-sidebar {
@@ -1021,11 +1434,17 @@ body {
     grid-template-columns: 1fr;
   }
 
-  .step-sidebar {
-    position: static;
-    display: grid;
-    grid-template-columns: 1fr 1fr;
-    gap: 16px;
+  .parallel-panels {
+    grid-template-columns: 1fr;
+  }
+
+  .parallel-connector {
+    flex-direction: row;
+    padding: 12px;
+  }
+
+  .connector-text {
+    writing-mode: horizontal-tb;
   }
 
   .simulation-layout {
@@ -1048,8 +1467,22 @@ body {
     font-size: 1.5rem;
   }
 
+  .construction-timeline {
+    gap: 2px;
+  }
+
+  .timeline-label {
+    font-size: 0.55rem;
+  }
+
+  .timeline-dot {
+    width: 24px;
+    height: 24px;
+    font-size: 0.65rem;
+  }
+
   .step-sidebar {
-    grid-template-columns: 1fr;
+    order: -1;
   }
 
   .house-comparison {

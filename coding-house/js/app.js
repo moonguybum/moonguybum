@@ -17,7 +17,7 @@
     simStep: 0,
     todos: [],
     returnFromToolbox: 4,
-    returnFromSimulation: 7
+    returnFromSimulation: 9
   };
 
   // DOM 요소
@@ -60,49 +60,27 @@
     }
   }
 
-  /** 집 SVG 생성 — 진행 단계에 따라 완성도 변화 */
-  function createHouseSVG(progress, isComplete) {
-    const p = Math.min(progress, 10);
-    const roofOpacity = p >= 1 ? 1 : 0.3;
-    const wallsOpacity = p >= 3 ? 1 : 0.3;
-    const doorOpacity = p >= 5 ? 1 : 0.3;
-    const windowOpacity = p >= 6 ? 1 : 0.3;
-    const pipeOpacity = p >= 7 ? 1 : 0.3;
-    const flagOpacity = isComplete ? 1 : 0;
+  /** 집 공사 현장 SVG — HouseVisual 모듈 사용 */
+  function renderConstructionTheater(stepId) {
+    const theater = elements.theaterStage;
+    const timelineWrap = elements.constructionTimelineWrap;
+    if (!theater) return;
 
-    return `
-      <svg viewBox="0 0 120 100" width="100%" height="100%" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
-        <rect x="0" y="85" width="120" height="15" fill="#c8d4c0"/>
-        <!-- 기초 -->
-        <rect x="25" y="75" width="70" height="10" fill="#8a9a8a" opacity="${p >= 2 ? 1 : 0.3}"/>
-        <!-- 벽 -->
-        <rect x="30" y="45" width="60" height="30" fill="#e8e0d4" stroke="#5a5a5a" stroke-width="1.5" opacity="${wallsOpacity}"/>
-        <!-- 지붕 -->
-        <polygon points="60,15 20,48 100,48" fill="#e87c3c" stroke="#5a5a5a" stroke-width="1.5" opacity="${roofOpacity}"/>
-        <!-- 문 -->
-        <rect x="50" y="58" width="16" height="17" fill="#4a7c59" stroke="#5a5a5a" stroke-width="1" opacity="${doorOpacity}"/>
-        <!-- 창문 -->
-        <rect x="36" y="52" width="12" height="12" fill="#a8d4e8" stroke="#5a5a5a" stroke-width="1" opacity="${windowOpacity}"/>
-        <rect x="72" y="52" width="12" height="12" fill="#a8d4e8" stroke="#5a5a5a" stroke-width="1" opacity="${windowOpacity}"/>
-        <!-- 배관 -->
-        <line x1="95" y1="50" x2="110" y2="50" stroke="#7b68ae" stroke-width="3" opacity="${pipeOpacity}"/>
-        <rect x="108" y="40" width="8" height="20" fill="#5c7a8a" opacity="${pipeOpacity}"/>
-        <!-- 완성 깃발 -->
-        <line x1="60" y1="15" x2="60" y2="5" stroke="#5a5a5a" stroke-width="1" opacity="${flagOpacity}"/>
-        <polygon points="60,5 72,8 60,11" fill="#4a7c59" opacity="${flagOpacity}"/>
-      </svg>
-    `;
+    theater.innerHTML = HouseVisual.createConstructionScene(stepId, stepId);
+
+    if (timelineWrap) {
+      timelineWrap.innerHTML = HouseVisual.createTimeline(stepId, state.completedSteps);
+    }
   }
 
-  /** 빈 집 SVG (시작 상태) */
-  function createEmptyHouseSVG() {
-    return `
-      <svg viewBox="0 0 120 100" width="100%" height="100%" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
-        <rect x="0" y="85" width="120" height="15" fill="#c8d4c0"/>
-        <rect x="35" y="70" width="50" height="5" fill="#8a9a8a" opacity="0.4" stroke-dasharray="4"/>
-        <text x="60" y="55" text-anchor="middle" font-size="10" fill="#8a9a8a">땅</text>
-      </svg>
-    `;
+  /** 홈 화면 집 비교 일러스트 */
+  function updateHomeHouseVisuals() {
+    const before = elements.houseBefore;
+    const after = elements.houseAfter;
+    if (before) before.innerHTML = HouseVisual.createEmptySite();
+    if (after) {
+      after.innerHTML = HouseVisual.createFinishedSite();
+    }
   }
 
   /** 진행률 계산 */
@@ -139,10 +117,7 @@
     }
 
     // 집 비교 일러스트
-    const before = elements.houseBefore;
-    const after = elements.houseAfter;
-    if (before) before.innerHTML = createEmptyHouseSVG();
-    if (after) after.innerHTML = createHouseSVG(state.completedSteps.length, state.completedSteps.length >= 10);
+    updateHomeHouseVisuals();
   }
 
   /** 화면 전환 */
@@ -196,15 +171,28 @@
 
     elements.stepIndicator.textContent = `${stepId}단계 / ${APP_DATA.totalSteps}단계`;
     elements.stepTitle.textContent = step.title;
-    elements.architectureLead.textContent = step.architectureLead;
 
-    // 건축 비유 목록
+    // 공사 현장 시각화
+    renderConstructionTheater(stepId);
+
+    if (elements.theaterPhaseLabel) {
+      elements.theaterPhaseLabel.textContent = step.houseStageLabel || '';
+    }
+
+    // 병렬 패널 — 집 짓기
+    if (elements.houseStageLabel) elements.houseStageLabel.textContent = step.houseStageLabel || '';
+    if (elements.houseNowText) elements.houseNowText.textContent = step.houseNow || '';
+
     elements.architectureList.innerHTML = '';
     step.architectureItems.forEach((item) => {
       const li = document.createElement('li');
       li.textContent = item;
       elements.architectureList.appendChild(li);
     });
+
+    // 병렬 패널 — 코딩
+    if (elements.codingParallelTitle) elements.codingParallelTitle.textContent = step.codingParallelTitle || '';
+    if (elements.codingParallelLead) elements.codingParallelLead.textContent = step.codingParallelLead || '';
 
     // 코딩 개념 태그
     elements.codingTags.innerHTML = '';
@@ -254,11 +242,7 @@
       elements.stepSpecialActions.appendChild(simBtn);
     }
 
-    // 집 진행 시각화
-    const houseVisual = elements.houseProgressVisual;
-    if (houseVisual) {
-      houseVisual.innerHTML = createHouseSVG(stepId, state.completedSteps.includes(stepId));
-    }
+    // 집 진행 시각화는 공사 현장(theater)에서 처리
 
     // 퀴즈
     renderQuiz(step);
@@ -574,15 +558,21 @@
     elements.houseBefore = document.getElementById('house-before');
     elements.houseAfter = document.getElementById('house-after');
 
+    elements.theaterStage = document.getElementById('theater-stage');
+    elements.theaterPhaseLabel = document.getElementById('theater-phase-label');
+    elements.constructionTimelineWrap = document.getElementById('construction-timeline-wrap');
+    elements.houseStageLabel = document.getElementById('house-stage-label');
+    elements.houseNowText = document.getElementById('house-now-text');
+    elements.codingParallelTitle = document.getElementById('coding-parallel-title');
+    elements.codingParallelLead = document.getElementById('coding-parallel-lead');
+
     elements.stepIndicator = document.getElementById('step-indicator');
     elements.stepTitle = document.getElementById('step-title');
-    elements.architectureLead = document.getElementById('architecture-lead');
     elements.architectureList = document.getElementById('architecture-list');
     elements.codingTags = document.getElementById('coding-tags');
     elements.codingExample = document.getElementById('coding-example');
     elements.keyExplanation = document.getElementById('key-explanation');
     elements.stepSpecialActions = document.getElementById('step-special-actions');
-    elements.houseProgressVisual = document.getElementById('house-progress-visual');
     elements.stepList = document.getElementById('step-list');
 
     elements.quizQuestion = document.getElementById('quiz-question');
